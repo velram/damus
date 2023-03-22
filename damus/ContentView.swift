@@ -84,6 +84,7 @@ struct ContentView: View {
     @State var is_deleted_account: Bool = false
     @State var muting: String? = nil
     @State var confirm_mute: Bool = false
+    @State var hide_bar: Bool = false
     @State var user_muted_confirm: Bool = false
     @State var confirm_overwrite_mutelist: Bool = false
     @SceneStorage("ContentView.filter_state") var filter_state : FilterState = .posts_and_replies
@@ -293,12 +294,17 @@ struct ContentView: View {
                 }
                 .navigationViewStyle(.stack)
             
-                TabBar(nstatus: home.notification_status, selected: $selected_timeline, settings: damus.settings, action: switch_timeline)
-                    .padding([.bottom], 8)
-                    .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+                if !hide_bar {
+                    TabBar(nstatus: home.notification_status, selected: $selected_timeline, settings: damus.settings, action: switch_timeline)
+                        .padding([.bottom], 8)
+                        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+                } else {
+                    Text("")
+                }
             }
         }
         .ignoresSafeArea(.keyboard)
+        .edgesIgnoringSafeArea(hide_bar ? [.bottom] : [])
         .onAppear() {
             self.connect()
             try? AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.playback, mode: .default, options: .mixWithOthers)
@@ -341,6 +347,10 @@ struct ContentView: View {
                 case .script(let data): self.open_script(data)
                 }
             }
+        }
+        .onReceive(handle_notify(.display_tabbar)) { notif in
+            let show = notif.object as! Bool
+            self.hide_bar = !show
         }
         .onReceive(handle_notify(.compose)) { notif in
             let action = notif.object as! PostAction

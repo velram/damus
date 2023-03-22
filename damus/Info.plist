@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict/>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -66,9 +70,5 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
-	<key>NSCameraUsageDescription</key>
-	<string>Damus needs access to your camera if you want to upload photos from it</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Damus needs access to your microphone if you want to upload recorded videos from it</string>
 </dict>
 </plist>

@@ -98,6 +98,9 @@ extension Notification.Name {
     static var attached_wallet: Notification.Name {
         return Notification.Name("attached_wallet")
     }
+    static var display_tabbar: Notification.Name {
+        return Notification.Name("display_tabbar")
+    }
 }
 
 func handle_notify(_ name: Notification.Name) -> NotificationCenter.Publisher {
