@@ -52,6 +52,14 @@ class NdbNote: Encodable, Equatable, Hashable {
         self.note = note
         self.owned = owned_size != nil
         self.count = owned_size ?? 0
+
+        if let owned_size {
+            NdbNote.total_ndb_size += Int(owned_size)
+            NdbNote.notes_created += 1
+
+            print("\(NdbNote.notes_created) ndb_notes, \(NdbNote.total_ndb_size) bytes")
+        }
+
     }
 
     var content: String {
@@ -94,6 +102,10 @@ class NdbNote: Encodable, Equatable, Hashable {
 
     deinit {
         if self.owned {
+            NdbNote.total_ndb_size -= Int(count)
+            NdbNote.notes_created -= 1
+
+            print("\(NdbNote.notes_created) ndb_notes, \(NdbNote.total_ndb_size) bytes")
             free(note)
         }
     }
@@ -122,6 +134,9 @@ class NdbNote: Encodable, Equatable, Hashable {
         try container.encode(content, forKey: .content)
         try container.encode(tags, forKey: .tags)
     }
+
+    static var total_ndb_size: Int = 0
+    static var notes_created: Int = 0
 
     init?(content: String, keypair: Keypair, kind: UInt32 = 1, tags: [[String]] = [], createdAt: UInt32 = UInt32(Date().timeIntervalSince1970)) {
 
