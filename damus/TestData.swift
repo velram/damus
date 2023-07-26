@@ -7,14 +7,20 @@
 
 import Foundation
 
-let test_seckey = "8e33316b227de8215d36f4787573beaaf532229bb00398430a0ae963b658e656"
-let test_pubkey = "a9952fe066ced622167acb8069a0dfd1d44d9493ef2a4c28cf93e2877248b41a"
+
+let test_seckey = Privkey(Data([0xe0, 0xaa, 0x60, 0x26, 0x08, 0x18, 0xac, 0x10, 0x03, 0x86, 0x4d, 0x15, 0x24, 0x9a, 0xf7, 0xa3, 0x3e, 0x4f, 0x1f, 0xc9, 0x01, 0xcf, 0xee, 0xa9, 0xb4, 0x77, 0xc7, 0x07, 0x22, 0xb7, 0x25, 0xfd]))
+
+
+let test_pubkey = Pubkey(Data([0xf7, 0xda, 0xc4, 0x6a, 0xa2, 0x70, 0xf7, 0x28, 0x76, 0x06, 0xa2, 0x2b, 0xeb, 0x4d, 0x77, 0x25, 0x57, 0x3a, 0xfa, 0x0e, 0x02, 0x8c, 0xdf, 0xac, 0x39, 0xa4, 0xcb, 0x23, 0x31, 0x53, 0x7f, 0x66]))
+
+let test_pubkey_2 = Pubkey(Data([0x18, 0x42, 0x95, 0xc7, 0x6d, 0x5f, 0xf9, 0x4e, 0x99, 0x6a, 0xa8, 0xc1, 0x75, 0x23, 0x93, 0xdf, 0x0e, 0x72, 0xb5, 0x51, 0x89, 0xfc, 0x88, 0xfa, 0x06, 0x41, 0x5c, 0xce, 0x20, 0x4a, 0xc5, 0xea]))
+
 let test_keypair = Keypair(pubkey: test_pubkey, privkey: test_seckey)
 let test_keypair_full = test_keypair.to_full()!
 
-let test_event_holder = EventHolder(events: [], incoming: [test_event])
+let test_event_holder = EventHolder(events: [], incoming: [test_note])
 
-let test_event =
+let test_note =
         NostrEvent(
             content: "hello there https://jb55.com/s/Oct12-150217.png https://jb55.com/red-me.jpg cool",
             keypair: test_keypair,
@@ -32,18 +38,18 @@ let test_event_group = EventGroup(events: test_reposts)
 let test_zap_invoice = ZapInvoice(description: .description("description"), amount: 10000, string: "lnbc1", expiry: 1000000, payment_hash: Data(), created_at: 1000000)
 let test_zap_request_ev = NostrEvent(content: "hi", keypair: test_keypair, kind: 9734)!
 let test_zap_request = ZapRequest(ev: test_zap_request_ev)
-let test_zap = Zap(event: test_event, invoice: test_zap_invoice, zapper: "zapper", target: .profile("pk"), raw_request: test_zap_request, is_anon: false, private_request: nil)
+let test_zap = Zap(event: test_note, invoice: test_zap_invoice, zapper: test_note.pubkey, target: .profile(test_pubkey), raw_request: test_zap_request, is_anon: false, private_request: nil)
 
-let test_private_zap = Zap(event: test_event, invoice: test_zap_invoice, zapper: "zapper", target: .profile("pk"), raw_request: test_zap_request, is_anon: false, private_request: .init(ev: test_event))
+let test_private_zap = Zap(event: test_note, invoice: test_zap_invoice, zapper: test_note.pubkey, target: .profile(test_pubkey), raw_request: test_zap_request, is_anon: false, private_request: .init(ev: test_note))
 
-let test_pending_zap = PendingZap(amount_msat: 10000, target: .note(id: "id", author: "pk"), request: .normal(test_zap_request), type: .pub, state: .external(.init(state: .fetching_invoice)))
+let test_pending_zap = PendingZap(amount_msat: 10000, target: .note(id: test_note.id, author: test_note.pubkey), request: .normal(test_zap_request), type: .pub, state: .external(.init(state: .fetching_invoice)))
 
 
 func test_damus_state() -> DamusState {
     let damus = DamusState.empty
 
     let prof = Profile(name: "damus", display_name: "damus", about: "iOS app!", picture: "https://damus.io/img/logo.png", banner: "", website: "https://damus.io", lud06: nil, lud16: "jb55@sendsats.lol", nip05: "damus.io", damus_donation: nil)
-    let tsprof = TimestampedProfile(profile: prof, timestamp: 0, event: test_event)
+    let tsprof = TimestampedProfile(profile: prof, timestamp: 0, event: test_note)
     damus.profiles.add(id: test_pubkey, profile: tsprof)
     return damus
 }

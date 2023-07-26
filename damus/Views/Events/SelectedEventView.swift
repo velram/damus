@@ -12,7 +12,7 @@ struct SelectedEventView: View {
     let event: NostrEvent
     let size: EventViewKind
     
-    var pubkey: String {
+    var pubkey: Pubkey {
         event.pubkey
     }
     
@@ -50,7 +50,7 @@ struct SelectedEventView: View {
                 EventBody(damus_state: damus, event: event, size: size, options: [.wide])
 
                 if let mention = first_eref_mention(ev: event, privkey: damus.keypair.privkey) {
-                    BuilderEventView(damus: damus, event_id: mention.ref.id)
+                    BuilderEventView(damus: damus, event_id: mention.ref)
                         .padding(.horizontal)
                 }
                 
@@ -86,6 +86,6 @@ struct SelectedEventView: View {
 
 struct SelectedEventView_Previews: PreviewProvider {
     static var previews: some View {
-        SelectedEventView(damus: test_damus_state(), event: test_event, size: .selected)
+        SelectedEventView(damus: test_damus_state(), event: test_note, size: .selected)
     }
 }

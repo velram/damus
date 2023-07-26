@@ -10,11 +10,11 @@ import SwiftUI
 struct EventShell<Content: View>: View {
     let state: DamusState
     let event: NostrEvent
-    let pubkey: String
+    let pubkey: Pubkey
     let options: EventViewOptions
     let content: Content
     
-    init(state: DamusState, event: NostrEvent, pubkey: String, options: EventViewOptions, @ViewBuilder content: () -> Content) {
+    init(state: DamusState, event: NostrEvent, pubkey: Pubkey, options: EventViewOptions, @ViewBuilder content: () -> Content) {
         self.state = state
         self.event = event
         self.options = options
@@ -34,7 +34,7 @@ struct EventShell<Content: View>: View {
         !options.contains(.no_action_bar)
     }
     
-    func get_mention() -> Mention? {
+    func get_mention() -> Mention<NoteId>? {
         if self.options.contains(.nested) || self.options.contains(.no_mentions) {
             return nil
         }
@@ -42,8 +42,8 @@ struct EventShell<Content: View>: View {
         return first_eref_mention(ev: event, privkey: state.keypair.privkey)
     }
 
-    func Mention(_ mention: Mention) -> some View {
-        return BuilderEventView(damus: state, event_id: mention.ref.id)
+    func Mention(_ mention: Mention<NoteId>) -> some View {
+        return BuilderEventView(damus: state, event_id: mention.ref)
     }
     
     var ActionBar: some View {
@@ -133,11 +133,11 @@ struct EventShell_Previews: PreviewProvider {
 
     static var previews: some View {
         VStack {
-            EventShell(state: test_damus_state(), event: test_event, options: [.no_action_bar]) {
+            EventShell(state: test_damus_state(), event: test_note, options: [.no_action_bar]) {
                 Text(verbatim: "Hello")
             }
 
-            EventShell(state: test_damus_state(), event: test_event, options: [.no_action_bar, .wide]) {
+            EventShell(state: test_damus_state(), event: test_note, options: [.no_action_bar, .wide]) {
                 Text(verbatim: "Hello")
             }
         }

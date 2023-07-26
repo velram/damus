@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ReplyPart: View {
     let event: NostrEvent
-    let privkey: String?
+    let privkey: Privkey?
     let profiles: Profiles
     
     var body: some View {
@@ -25,6 +25,6 @@ struct ReplyPart: View {
 
 struct ReplyPart_Previews: PreviewProvider {
     static var previews: some View {
-        ReplyPart(event: test_event, privkey: nil, profiles: test_damus_state().profiles)
+        ReplyPart(event: test_note, privkey: nil, profiles: test_damus_state().profiles)
     }
 }

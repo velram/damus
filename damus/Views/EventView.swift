@@ -20,9 +20,9 @@ struct EventView: View {
     let event: NostrEvent
     let options: EventViewOptions
     let damus: DamusState
-    let pubkey: String
+    let pubkey: Pubkey
 
-    init(damus: DamusState, event: NostrEvent, pubkey: String? = nil, options: EventViewOptions = []) {
+    init(damus: DamusState, event: NostrEvent, pubkey: Pubkey? = nil, options: EventViewOptions = []) {
         self.event = event
         self.options = options
         self.damus = damus
@@ -54,7 +54,7 @@ struct EventView: View {
 }
 
 // blame the porn bots for this code
-func should_show_images(settings: UserSettingsStore, contacts: Contacts, ev: NostrEvent, our_pubkey: String, booster_pubkey: String? = nil) -> Bool {
+func should_show_images(settings: UserSettingsStore, contacts: Contacts, ev: NostrEvent, our_pubkey: Pubkey, booster_pubkey: Pubkey? = nil) -> Bool {
     if settings.always_show_images {
         return true
     }
@@ -72,10 +72,10 @@ func should_show_images(settings: UserSettingsStore, contacts: Contacts, ev: Nos
 }
 
 extension View {
-    func pubkey_context_menu(bech32_pubkey: String) -> some View {
+    func pubkey_context_menu(pubkey: Pubkey) -> some View {
         return self.contextMenu {
             Button {
-                    UIPasteboard.general.string = bech32_pubkey
+                UIPasteboard.general.string = pubkey.npub
             } label: {
                 Label(NSLocalizedString("Copy Account ID", comment: "Context menu option for copying the ID of the account that created the note."), image: "copy2")
             }
@@ -96,7 +96,7 @@ func format_date(_ created_at: UInt32) -> String {
     return dateFormatter.string(from: date)
 }
 
-func make_actionbar_model(ev: String, damus: DamusState) -> ActionBarModel {
+func make_actionbar_model(ev: NoteId, damus: DamusState) -> ActionBarModel {
     let model = ActionBarModel.empty()
     model.update(damus: damus, evid: ev)
     return model
@@ -143,7 +143,7 @@ struct EventView_Previews: PreviewProvider {
             
              */
 
-            EventView( damus: test_damus_state(), event: test_event )
+            EventView( damus: test_damus_state(), event: test_note )
 
             EventView( damus: test_damus_state(), event: test_longform_event.event, options: [.wide] )
         }

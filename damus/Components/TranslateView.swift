@@ -121,11 +121,11 @@ extension View {
 struct TranslateView_Previews: PreviewProvider {
     static var previews: some View {
         let ds = test_damus_state()
-        TranslateView(damus_state: ds, event: test_event, size: .normal)
+        TranslateView(damus_state: ds, event: test_note, size: .normal)
     }
 }
 
-func translate_note(profiles: Profiles, privkey: String?, event: NostrEvent, settings: UserSettingsStore, note_lang: String) async -> TranslateStatus {
+func translate_note(profiles: Profiles, privkey: Privkey?, event: NostrEvent, settings: UserSettingsStore, note_lang: String) async -> TranslateStatus {
     
     // If the note language is different from our preferred languages, send a translation request.
     let translator = Translator(settings)

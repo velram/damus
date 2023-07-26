@@ -10,7 +10,7 @@ import XCTest
 
 final class UserSearchCacheTests: XCTestCase {
 
-    var keypair: Keypair? = nil
+    var keypair: FullKeypair? = nil
     let damusState = DamusState.empty
     let nip05 = "_@somedomain.com"
 
@@ -24,7 +24,7 @@ final class UserSearchCacheTests: XCTestCase {
             damusState.profiles.set_validated(pubkey, nip05: validatedNip05)
 
             let profile = Profile(name: "tyiu", display_name: "Terry Yiu", about: nil, picture: nil, banner: nil, website: nil, lud06: nil, lud16: nil, nip05: nip05, damus_donation: nil)
-            let timestampedProfile = TimestampedProfile(profile: profile, timestamp: 0, event: test_event)
+            let timestampedProfile = TimestampedProfile(profile: profile, timestamp: 0, event: test_note)
             damusState.profiles.add(id: pubkey, profile: timestampedProfile)
 
             // Lookup to synchronize access on profiles dictionary to avoid race conditions.
@@ -56,7 +56,7 @@ final class UserSearchCacheTests: XCTestCase {
         damusState.profiles.set_validated(keypair.pubkey, nip05: NIP05.parse(newNip05))
 
         let newProfile = Profile(name: "whoami", display_name: "T-DAWG", about: nil, picture: nil, banner: nil, website: nil, lud06: nil, lud16: nil, nip05: newNip05, damus_donation: nil)
-        let newTimestampedProfile = TimestampedProfile(profile: newProfile, timestamp: 1000, event: test_event)
+        let newTimestampedProfile = TimestampedProfile(profile: newProfile, timestamp: 1000, event: test_note)
         damusState.profiles.add(id: keypair.pubkey, profile: newTimestampedProfile)
 
         // Lookup to synchronize access on profiles dictionary to avoid race conditions.
@@ -83,10 +83,10 @@ final class UserSearchCacheTests: XCTestCase {
 
     func testUpdateOwnContactsPetnames() throws {
         let keypair = try XCTUnwrap(keypair)
-        let damus = "3efdaebb1d8923ebd99c9e7ace3b4194ab45512e2be79c1b7d68d9243e0d2681"
-        let jb55 = "32e1827635450ebb3c5a7d12c1f8e7b2b514439ac10a67eef3d9fd9c5c68e245"
+        let damus = Pubkey(hex: "3efdaebb1d8923ebd99c9e7ace3b4194ab45512e2be79c1b7d68d9243e0d2681")!
+        let jb55 = Pubkey(hex: "32e1827635450ebb3c5a7d12c1f8e7b2b514439ac10a67eef3d9fd9c5c68e245")!
 
-        var pubkeysToPetnames = [String: String]()
+        var pubkeysToPetnames = [Pubkey: String]()
         pubkeysToPetnames[damus] = "damus"
         pubkeysToPetnames[jb55] = "jb55"
 
@@ -114,7 +114,7 @@ final class UserSearchCacheTests: XCTestCase {
         XCTAssertEqual(damusState.user_search_cache.search(key: "l"), [jb55])
     }
 
-    private func createContactsEventWithPetnames(pubkeysToPetnames: [String: String]) throws -> NostrEvent {
+    private func createContactsEventWithPetnames(pubkeysToPetnames: [Pubkey: String]) throws -> NostrEvent {
         let keypair = try XCTUnwrap(keypair)
 
         let bootstrapRelays = load_bootstrap_relays(pubkey: keypair.pubkey)
@@ -127,11 +127,11 @@ final class UserSearchCacheTests: XCTestCase {
 
         let relayJson = encode_json(relays)!
 
-        let tags = pubkeysToPetnames.enumerated().map {
-            ["p", $0.element.key, "", $0.element.value]
+        let tags: [[String]] = pubkeysToPetnames.enumerated().map {
+            ["p", $0.element.key.description, "", $0.element.value]
         }
 
-        return NostrEvent(content: relayJson, keypair: keypair, kind: NostrKind.contacts.rawValue, tags: tags)!
+        return NostrEvent(content: relayJson, keypair: keypair.to_keypair(), kind: NostrKind.contacts.rawValue, tags: tags)!
     }
 
 }

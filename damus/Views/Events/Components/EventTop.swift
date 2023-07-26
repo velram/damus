@@ -10,10 +10,10 @@ import SwiftUI
 struct EventTop: View {
     let state: DamusState
     let event: NostrEvent
-    let pubkey: String
+    let pubkey: Pubkey
     let is_anon: Bool
     
-    init(state: DamusState, event: NostrEvent, pubkey: String, is_anon: Bool) {
+    init(state: DamusState, event: NostrEvent, pubkey: Pubkey, is_anon: Bool) {
         self.state = state
         self.event = event
         self.pubkey = pubkey
@@ -22,7 +22,7 @@ struct EventTop: View {
     
     func ProfileName(is_anon: Bool) -> some View {
         let profile = state.profiles.lookup(id: self.pubkey)
-        let pk = is_anon ? "anon" : self.pubkey
+        let pk = is_anon ? ANON_PUBKEY : self.pubkey
         return EventProfileName(pubkey: pk, profile: profile, damus: state, size: .normal)
     }
     
@@ -41,6 +41,6 @@ struct EventTop: View {
 
 struct EventTop_Previews: PreviewProvider {
     static var previews: some View {
-        EventTop(state: test_damus_state(), event: test_event, pubkey: test_event.pubkey, is_anon: false)
+        EventTop(state: test_damus_state(), event: test_note, pubkey: test_note.pubkey, is_anon: false)
     }
 }

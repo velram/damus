@@ -11,15 +11,15 @@ import Foundation
 /// Optimized for fast searches of substrings by using a Trie.
 /// Optimal for performing user searches that could be initiated by typing quickly on a keyboard into a text input field.
 class UserSearchCache {
-    private let trie = Trie<String>()
+    private let trie = Trie<Pubkey>()
 
-    func search(key: String) -> [String] {
+    func search(key: String) -> [Pubkey] {
         let results = trie.find(key: key)
         return results
     }
 
     /// Computes the differences between an old profile, if it exists, and a new profile, and updates the user search cache accordingly.
-    func updateProfile(id: String, profiles: Profiles, oldProfile: Profile?, newProfile: Profile) {
+    func updateProfile(id: Pubkey, profiles: Profiles, oldProfile: Profile?, newProfile: Profile) {
         // Remove searchable keys tied to the old profile if they differ from the new profile
         // to keep the trie clean without empty nodes while avoiding excessive graph searching.
         if let oldProfile {
@@ -38,7 +38,7 @@ class UserSearchCache {
     }
 
     /// Adds a profile to the user search cache.
-    private func addProfile(id: String, profiles: Profiles, profile: Profile) {
+    private func addProfile(id: Pubkey, profiles: Profiles, profile: Profile) {
         // Searchable by name.
         if let name = profile.name {
             trie.insert(key: name.lowercased(), value: id)
@@ -56,35 +56,39 @@ class UserSearchCache {
     }
 
     /// Computes the diffences between an old contacts event and a new contacts event for our own user, and updates the search cache accordingly.
-    func updateOwnContactsPetnames(id: String, oldEvent: NostrEvent?, newEvent: NostrEvent) {
+    func updateOwnContactsPetnames(id: Pubkey, oldEvent: NostrEvent?, newEvent: NostrEvent) {
         guard newEvent.known_kind == .contacts && newEvent.pubkey == id else {
             return
         }
 
-        var petnames: [String: String] = [:]
-
-        // Gets all petnames from our new contacts list.
-        newEvent.tags.forEach { tag in
-            guard tag.count >= 4 && tag[0].matches_char("p") else {
+        var petnames: [Pubkey: String] = [:]
+        for tag in newEvent.tags {
+            guard tag.count > 3,
+                  let chr = tag[0].single_char, chr == "p",
+                  let id = tag[1].id()
+            else {
                 return
             }
 
-            let pubkey = tag[1]
-            let petname = tag[3]
+            let pubkey = Pubkey(id)
 
-            petnames[pubkey.string()] = petname.string()
+            petnames[pubkey] = tag[3].string()
         }
 
         // Compute the diff with the old contacts list, if it exists,
         // mark the ones that are the same to not be removed from the user search cache,
         // and remove the old ones that are different from the user search cache.
-        if let oldEvent, oldEvent.known_kind == .contacts && oldEvent.pubkey == id {
-            oldEvent.tags.forEach { tag in
-                guard tag.count >= 4 && tag[0].matches_char("p") else {
+        if let oldEvent, oldEvent.known_kind == .contacts, oldEvent.pubkey == id {
+            for tag in oldEvent.tags {
+                guard tag.count >= 4,
+                      tag[0].matches_char("p"),
+                      let id = tag[1].id()
+                else {
                     return
                 }
 
-                let pubkey = tag[1].string()
+                let pubkey = Pubkey(id)
+
                 let oldPetname = tag[3].string()
 
                 if let newPetname = petnames[pubkey] {

@@ -31,7 +31,7 @@ func follow_btn_txt(_ fs: FollowState, follows_you: Bool) -> String {
     }
 }
 
-func followedByString(_ friend_intersection: [String], profiles: Profiles, locale: Locale = Locale.current) -> String {
+func followedByString(_ friend_intersection: [Pubkey], profiles: Profiles, locale: Locale = Locale.current) -> String {
     let bundle = bundleForLocale(locale: locale)
     let names: [String] = friend_intersection.prefix(3).map {
         let profile = profiles.lookup(id: $0)
@@ -90,7 +90,7 @@ struct ProfileView: View {
         self._followers = StateObject(wrappedValue: followers)
     }
 
-    init(damus_state: DamusState, pubkey: String) {
+    init(damus_state: DamusState, pubkey: Pubkey) {
         self.damus_state = damus_state
         self._profile = StateObject(wrappedValue: ProfileModel(pubkey: pubkey, damus: damus_state))
         self._followers = StateObject(wrappedValue: FollowersModel(damus_state: damus_state, target: pubkey))
@@ -190,7 +190,7 @@ struct ProfileView: View {
                             return
                         }
 
-                        guard let new_ev = remove_from_mutelist(keypair: keypair, prev: mutelist, to_remove: profile.pubkey) else {
+                        guard let new_ev = remove_from_mutelist(keypair: keypair, prev: mutelist, to_remove: .pubkey(profile.pubkey)) else {
                             return
                         }
 
@@ -260,10 +260,11 @@ struct ProfileView: View {
     func actionSection(profile_data: Profile?) -> some View {
         return Group {
 
-            if let profile = profile_data {
-                if let lnurl = profile.lnurl, lnurl != "" {
-                    lnButton(lnurl: lnurl, profile: profile)
-                }
+            if let profile = profile_data,
+               let lnurl = profile.lnurl,
+               lnurl != ""
+            {
+                lnButton(lnurl: lnurl, profile: profile)
             }
 
             dmButton
@@ -353,9 +354,7 @@ struct ProfileView: View {
 
             HStack {
                 if let contact = profile.contacts {
-                    let contacts = contact.referenced_pubkeys.reduce(into: [String]()) { pks, ref in
-                        pks.append(ref.ref_id.string())
-                    }
+                    let contacts = Array(contact.referenced_pubkeys)
                     let following_model = FollowingModel(damus_state: damus_state, contacts: contacts)
                     NavigationLink(value: Route.Following(following: following_model)) {
                         HStack {
@@ -468,11 +467,8 @@ struct ProfileView: View {
                 // our profilemodel needs a bit more help
             }
             .sheet(isPresented: $show_share_sheet) {
-                if let npub = bech32_pubkey(profile.pubkey) {
-                    if let url = URL(string: "https://damus.io/" + npub) {
-                        ShareSheet(activityItems: [url])
-                    }
-                }
+                let url = URL(string: "https://damus.io/" + profile.pubkey.npub)!
+                ShareSheet(activityItems: [url])
             }
             .fullScreenCover(isPresented: $show_qr_code) {
                 QRCodeView(damus_state: damus_state, pubkey: profile.pubkey)
@@ -495,7 +491,7 @@ struct ProfileView_Previews: PreviewProvider {
 }
 
 struct KeyView: View {
-    let pubkey: String
+    let pubkey: Pubkey
 
     @Environment(\.colorScheme) var colorScheme
 
@@ -519,7 +515,7 @@ struct KeyView: View {
     }
 
     var body: some View {
-        let bech32 = bech32_pubkey(pubkey) ?? pubkey
+        let bech32 = pubkey.npub
 
         HStack {
             Text(verbatim: "\(abbrev_pubkey(bech32, amount: 16))")
@@ -568,7 +564,7 @@ extension View {
     }
 }
 
-func check_nip05_validity(pubkey: String, profiles: Profiles) {
+func check_nip05_validity(pubkey: Pubkey, profiles: Profiles) {
     guard let profile = profiles.lookup(id: pubkey),
           let nip05 = profile.nip05,
           profiles.is_validated(pubkey) == nil

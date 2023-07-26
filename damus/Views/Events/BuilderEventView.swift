@@ -9,7 +9,7 @@ import SwiftUI
 
 struct BuilderEventView: View {
     let damus: DamusState
-    let event_id: String
+    let event_id: NoteId
     @State var event: NostrEvent?
     @State var subscription_uuid: String = UUID().description
     
@@ -19,7 +19,7 @@ struct BuilderEventView: View {
         self.event_id = event.id
     }
     
-    init(damus: DamusState, event_id: String) {
+    init(damus: DamusState, event_id: NoteId) {
         let event = damus.events.lookup(event_id)
         self.event_id = event_id
         self.damus = damus
@@ -93,7 +93,7 @@ struct BuilderEventView: View {
 
 struct BuilderEventView_Previews: PreviewProvider {
     static var previews: some View {
-        BuilderEventView(damus: test_damus_state(), event_id: "536bee9e83c818e3b82c101935128ae27a0d4290039aaf253efe5f09232c1962")
+        BuilderEventView(damus: test_damus_state(), event_id: test_note.id)
     }
 }
 

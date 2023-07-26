@@ -75,17 +75,17 @@ class NdbNote: Encodable, Equatable, Hashable {
     }
 
     /// NDBTODO: make this into data
-    var id: String {
-        hex_encode(Data(buffer: UnsafeBufferPointer(start: ndb_note_id(note), count: 32)))
+    var id: NoteId {
+        .init(Data(bytes: ndb_note_id(note), count: 32))
     }
 
-    var sig: String {
-        hex_encode(Data(buffer: UnsafeBufferPointer(start: ndb_note_sig(note), count: 64)))
+    var sig: Signature {
+        .init(Data(bytes: ndb_note_sig(note), count: 64))
     }
     
     /// NDBTODO: make this into data
-    var pubkey: String {
-        hex_encode(Data(buffer: UnsafeBufferPointer(start: ndb_note_pubkey(note), count: 32)))
+    var pubkey: Pubkey {
+        .init(Data(bytes: ndb_note_pubkey(note), count: 32))
     }
     
     var created_at: UInt32 {
@@ -126,8 +126,8 @@ class NdbNote: Encodable, Equatable, Hashable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
-        try container.encode(id, forKey: .id)
-        try container.encode(sig, forKey: .sig)
+        try container.encode(hex_encode(id.id), forKey: .id)
+        try container.encode(hex_encode(sig.data), forKey: .sig)
         try container.encode(pubkey, forKey: .pubkey)
         try container.encode(created_at, forKey: .created_at)
         try container.encode(kind, forKey: .kind)
@@ -146,7 +146,7 @@ class NdbNote: Encodable, Equatable, Hashable {
 
         ndb_builder_init(&builder, buf, Int32(buflen))
 
-        guard var pk_raw = hex_decode(keypair.pubkey) else { return nil }
+        var pk_raw = keypair.pubkey.bytes
 
         ndb_builder_set_pubkey(&builder, &pk_raw)
         ndb_builder_set_kind(&builder, UInt32(kind))
@@ -174,19 +174,23 @@ class NdbNote: Encodable, Equatable, Hashable {
 
         var n = UnsafeMutablePointer<ndb_note>?(nil)
 
-        let keypair = keypair.privkey.map { sec in
+
+        var the_kp: ndb_keypair? = nil
+
+        if let sec = keypair.privkey {
             var kp = ndb_keypair()
-            return sec.withCString { secptr in
-                if ndb_decode_key(secptr, &kp) <= 0 {
-                    print("bad keypair")
-                }
-                return kp
+            memcpy(&kp.secret.0, sec.id.bytes, 32);
+
+            if ndb_create_keypair(&kp) <= 0 {
+                print("bad keypair")
+            } else {
+                the_kp = kp
             }
         }
 
         var len: Int32 = 0
-        if var keypair {
-            len = ndb_builder_finalize(&builder, &n, &keypair)
+        if var the_kp {
+            len = ndb_builder_finalize(&builder, &n, &the_kp)
         } else {
             len = ndb_builder_finalize(&builder, &n, nil)
         }
@@ -258,11 +262,6 @@ extension NdbNote {
         return !too_big
     }
 
-    
-    //var is_valid_id: Bool {
-     //   return calculate_event_id(ev: self) == self.id
-    //}
-
     func get_blocks(content: String) -> Blocks {
         return parse_note_content(content: .note(self))
     }
@@ -272,9 +271,8 @@ extension NdbNote {
             return nil
         }
 
-        if self.content_len == 0, let ref = self.referenced_ids.first {
+        if self.content_len == 0, let id = self.referenced_ids.first {
             // TODO: raw id cache lookups
-            let id = ref.ref_id.string()
             return cache.lookup(id)
         }
 
@@ -284,19 +282,35 @@ extension NdbNote {
     }
 
     // TODO: References iterator
-    public var referenced_ids: LazyFilterSequence<References> {
-        References.ids(tags: self.tags)
+    public var referenced_ids: References<NoteId> {
+        References<NoteId>(tags: self.tags)
     }
 
-    public var referenced_pubkeys: LazyFilterSequence<References> {
-        References.pubkeys(tags: self.tags)
+    public var referenced_noterefs: References<NoteRef> {
+        References<NoteRef>(tags: self.tags)
     }
 
-    public var referenced_hashtags: LazyFilterSequence<References> {
-        References.hashtags(tags: self.tags)
+    public var referenced_pubkeys: References<Pubkey> {
+        References<Pubkey>(tags: self.tags)
     }
 
-    func event_refs(_ privkey: String?) -> [EventRef] {
+    public var referenced_hashtags: References<Hashtag> {
+        References<Hashtag>(tags: self.tags)
+    }
+
+    public var referenced_params: References<ReplaceableParam> {
+        References<ReplaceableParam>(tags: self.tags)
+    }
+
+    public var follow_references: References<FollowRef> {
+        References<FollowRef>(tags: self.tags)
+    }
+
+    public var references: References<RefId> {
+        References<RefId>(tags: self.tags)
+    }
+
+    func event_refs(_ privkey: Privkey?) -> [EventRef] {
         if let rs = _event_refs {
             return rs
         }
@@ -305,7 +319,7 @@ extension NdbNote {
         return refs
     }
 
-    func get_content(_ privkey: String?) -> String {
+    func get_content(_ privkey: Privkey?) -> String {
         if known_kind == .dm {
             return decrypted(privkey: privkey) ?? "*failed to decrypt content*"
         }
@@ -313,7 +327,7 @@ extension NdbNote {
         return content
     }
 
-    func blocks(_ privkey: String?) -> Blocks {
+    func blocks(_ privkey: Privkey?) -> Blocks {
         if let bs = _blocks { return bs }
 
         let blocks = get_blocks(content: self.get_content(privkey))
@@ -322,16 +336,13 @@ extension NdbNote {
     }
 
     // NDBTODO: switch this to operating on bytes not strings
-    func decrypted(privkey: String?) -> String? {
-        if let decrypted_content = decrypted_content {
+    func decrypted(privkey: Privkey?) -> String? {
+        if let decrypted_content {
             return decrypted_content
         }
 
-        guard let key = privkey else {
-            return nil
-        }
-
-        guard let our_pubkey = privkey_to_pubkey(privkey: key) else {
+        guard let privkey,
+              let our_pubkey = privkey_to_pubkey(privkey: privkey) else {
             return nil
         }
 
@@ -339,57 +350,42 @@ extension NdbNote {
         var pubkey = self.pubkey
         // This is our DM, we need to use the pubkey of the person we're talking to instead
 
-        if our_pubkey == pubkey {
-            guard let refkey = self.referenced_pubkeys.first else {
-                return nil
-            }
-
-            pubkey = refkey.ref_id.string()
+        if our_pubkey == pubkey, let pk = self.referenced_pubkeys.first {
+            pubkey = pk
         }
 
         // NDBTODO: pass data to pubkey
-        let dec = decrypt_dm(key, pubkey: pubkey, content: self.content, encoding: .base64)
+        let dec = decrypt_dm(privkey, pubkey: pubkey, content: self.content, encoding: .base64)
         self.decrypted_content = dec
 
         return dec
     }
 
-    /*
-
-    var description: String {
-        return "NostrEvent { id: \(id) pubkey \(pubkey) kind \(kind) tags \(tags) content '\(content)' }"
-    }
-
-    // Not sure I should implement this
-    private func get_referenced_ids(key: String) -> [ReferencedId] {
-        return damus.get_referenced_ids(tags: self.tags, key: key)
-    }
-     */
-
-    public func direct_replies(_ privkey: String?) -> [ReferencedId] {
+    public func direct_replies(_ privkey: Privkey?) -> [NoteId] {
         return event_refs(privkey).reduce(into: []) { acc, evref in
             if let direct_reply = evref.is_direct_reply {
-                acc.append(direct_reply)
+                acc.append(direct_reply.note_id)
             }
         }
     }
 
     // NDBTODO: just use Id
-    public func thread_id(privkey: String?) -> String {
+    public func thread_id(privkey: Privkey?) -> NoteId {
         for ref in event_refs(privkey) {
             if let thread_id = ref.is_thread_id {
-                return thread_id.ref_id
+                return thread_id.note_id
             }
         }
 
         return self.id
     }
 
-    public func last_refid() -> ReferencedId? {
-        return self.referenced_ids.last?.to_referenced_id()
+    public func last_refid() -> NoteId? {
+        return self.referenced_ids.last
     }
 
     // NDBTODO: id -> data
+    /*
     public func references(id: String, key: AsciiCharacter) -> Bool {
         var matcher: (Reference) -> Bool = { ref in ref.ref_id.matches_str(id) }
         if id.count == 64, let decoded = hex_decode(id) {
@@ -403,12 +399,13 @@ extension NdbNote {
 
         return false
     }
+     */
 
-    func is_reply(_ privkey: String?) -> Bool {
+    func is_reply(_ privkey: Privkey?) -> Bool {
         return event_is_reply(self.event_refs(privkey))
     }
 
-    func note_language(_ privkey: String?) -> String? {
+    func note_language(_ privkey: Privkey?) -> String? {
         assert(!Thread.isMainThread, "This function must not be run on the main thread.")
 
         // Rely on Apple's NLLanguageRecognizer to tell us which language it thinks the note is in
@@ -433,35 +430,5 @@ extension NdbNote {
     var age: TimeInterval {
         let event_date = Date(timeIntervalSince1970: TimeInterval(created_at))
         return Date.now.timeIntervalSince(event_date)
-    }
-
-    /*
-
-    func calculate_id() {
-        self.id = calculate_event_id(ev: self)
-    }
-
-    func sign(privkey: String) {
-        self.sig = sign_event(privkey: privkey, ev: self)
-    }
-
-    var age: TimeInterval {
-        let event_date = Date(timeIntervalSince1970: TimeInterval(created_at))
-        return Date.now.timeIntervalSince(event_date)
-    }
-     */
-}
-
-extension LazyFilterSequence {
-    var first: Element? {
-        self.first(where: { _ in true })
-    }
-
-    var last: Element? {
-        var ev: Element? = nil
-        for e in self {
-            ev = e
-        }
-        return ev
     }
 }

@@ -19,7 +19,7 @@ struct CreateAccountView: View {
     func regen_key() {
         let keypair = generate_new_keypair()
         self.account.pubkey = keypair.pubkey
-        self.account.privkey = keypair.privkey!
+        self.account.privkey = keypair.privkey
     }
     
     var body: some View {
@@ -134,9 +134,8 @@ struct CreateAccountView_Previews: PreviewProvider {
     }
 }
 
-func KeyText(_ text: Binding<String>) -> some View {
-    let decoded = hex_decode(text.wrappedValue)!
-    let bechkey = bech32_encode(hrp: PUBKEY_HRP, decoded)
+func KeyText(_ pubkey: Binding<Pubkey>) -> some View {
+    let bechkey = bech32_encode(hrp: PUBKEY_HRP, pubkey.wrappedValue.bytes)
     return Text(bechkey)
         .textSelection(.enabled)
         .multilineTextAlignment(.center)

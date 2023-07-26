@@ -35,7 +35,7 @@ struct ThreadView: View {
                         .padding(.horizontal)
                         .onTapGesture {
                             thread.set_active_event(parent_event)
-                            scroll_to_event(scroller: reader, id: parent_event.id, delay: 0.1, animate: false)
+                            scroll_to_event(scroller: reader, id: parent_event.id.hex(), delay: 0.1, animate: false)
                         }
                         
                         Divider()
@@ -78,7 +78,7 @@ struct ThreadView: View {
                         .padding(.horizontal)
                         .onTapGesture {
                             thread.set_active_event(child_event)
-                            scroll_to_event(scroller: reader, id: child_event.id, delay: 0.1, animate: false)
+                            scroll_to_event(scroller: reader, id: child_event.id.hex(), delay: 0.1, animate: false)
                         }
                         
                         Divider()
@@ -89,7 +89,7 @@ struct ThreadView: View {
             .onAppear {
                 thread.subscribe()
                 let anchor: UnitPoint = self.thread.event.known_kind == .longform ? .top : .bottom
-                scroll_to_event(scroller: reader, id: self.thread.event.id, delay: 0.0, animate: false, anchor: anchor)
+                scroll_to_event(scroller: reader, id: self.thread.event.id.hex(), delay: 0.0, animate: false, anchor: anchor)
             }
             .onDisappear {
                 thread.unsubscribe()
@@ -104,7 +104,7 @@ struct ThreadView: View {
 struct ThreadView_Previews: PreviewProvider {
     static var previews: some View {
         let state = test_damus_state()
-        let thread = ThreadModel(event: test_event, damus_state: state)
+        let thread = ThreadModel(event: test_note, damus_state: state)
         ThreadView(state: state, thread: thread)
     }
 }

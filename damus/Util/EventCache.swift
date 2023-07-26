@@ -61,7 +61,7 @@ class ZapsDataModel: ObservableObject {
         self.zaps = zaps
     }
     
-    func confirm_nwc(reqid: String) {
+    func confirm_nwc(reqid: NoteId) {
         guard let zap = zaps.first(where: { z in z.request.ev.id == reqid }),
               case .pending(let pzap) = zap
         else {
@@ -82,17 +82,17 @@ class ZapsDataModel: ObservableObject {
         zaps.reduce(0) { total, zap in total + zap.amount }
     }
    
-    func from(_ pubkey: String) -> [Zapping] {
+    func from(_ pubkey: Pubkey) -> [Zapping] {
         return self.zaps.filter { z in z.request.ev.pubkey == pubkey }
     }
     
     @discardableResult
-    func remove(reqid: String) -> Bool {
-        guard zaps.first(where: { z in z.request.ev.id == reqid }) != nil else {
+    func remove(reqid: ZapRequestId) -> Bool {
+        guard zaps.first(where: { z in z.request.id == reqid }) != nil else {
             return false
         }
         
-        self.zaps = zaps.filter { z in z.request.ev.id != reqid }
+        self.zaps = zaps.filter { z in z.request.id != reqid }
         return true
     }
 }
@@ -137,13 +137,13 @@ class EventData {
 }
 
 class EventCache {
-    private var events: [String: NostrEvent] = [:]
+    private var events: [NoteId: NostrEvent] = [:]
     private var replies = ReplyMap()
     private var cancellable: AnyCancellable?
-    private var image_metadata: [String: ImageMetadataState] = [:]
-    private var video_meta: [String: VideoPlayerModel] = [:]
-    private var event_data: [String: EventData] = [:]
-    
+    private var image_metadata: [String: ImageMetadataState] = [:] // lowercased URL key
+    private var video_meta: [URL: VideoPlayerModel] = [:]
+    private var event_data: [NoteId: EventData] = [:]
+
     //private var thread_latest: [String: Int64]
     
     init() {
@@ -154,7 +154,7 @@ class EventCache {
         }
     }
     
-    func get_cache_data(_ evid: String) -> EventData {
+    func get_cache_data(_ evid: NoteId) -> EventData {
         guard let data = event_data[evid] else {
             let data = EventData()
             event_data[evid] = data
@@ -164,17 +164,17 @@ class EventCache {
         return data
     }
     
-    func is_event_valid(_ evid: String) -> ValidationResult {
+    func is_event_valid(_ evid: NoteId) -> ValidationResult {
         return get_cache_data(evid).validated
     }
     
-    func store_event_validation(evid: String, validated: ValidationResult) {
+    func store_event_validation(evid: NoteId, validated: ValidationResult) {
         get_cache_data(evid).validated = validated
     }
     
     @discardableResult
     func store_zap(zap: Zapping) -> Bool {
-        let data = get_cache_data(zap.target.id).zaps_model
+        let data = get_cache_data(NoteId(zap.target.id)).zaps_model
         if let ev = zap.event {
             insert(ev)
         }
@@ -185,7 +185,7 @@ class EventCache {
         switch zap.target {
         case .note(let note_target):
             let zaps = get_cache_data(note_target.note_id).zaps_model
-            zaps.remove(reqid: zap.request.ev.id)
+            zaps.remove(reqid: zap.request.id)
         case .profile:
             // these aren't stored anywhere yet
             break
@@ -193,7 +193,7 @@ class EventCache {
     }
     
     func lookup_zaps(target: ZapTarget) -> [Zapping] {
-        return get_cache_data(target.id).zaps_model.zaps
+        return get_cache_data(NoteId(target.id)).zaps_model.zaps
     }
     
     func store_img_metadata(url: URL, meta: ImageMetadataState) {
@@ -214,17 +214,17 @@ class EventCache {
     }
     
     func store_video_player_model(url: URL, meta: VideoPlayerModel) {
-        video_meta[url.absoluteString] = meta
+        video_meta[url] = meta
     }
     
     @MainActor
     func get_video_player_model(url: URL) -> VideoPlayerModel {
-        if let model = video_meta[url.absoluteString] {
+        if let model = video_meta[url] {
             return model
         }
         
         let model = VideoPlayerModel()
-        video_meta[url.absoluteString] = model
+        video_meta[url] = model
         return model
     }
     
@@ -234,11 +234,9 @@ class EventCache {
         var ev = event
         
         while true {
-            guard let direct_reply = ev.direct_replies(nil).last else {
-                break
-            }
-            
-            guard let next_ev = lookup(direct_reply.ref_id), next_ev != ev else {
+            guard let direct_reply = ev.direct_replies(nil).last,
+                  let next_ev = lookup(direct_reply), next_ev != ev
+            else {
                 break
             }
             
@@ -251,7 +249,7 @@ class EventCache {
     
     func add_replies(ev: NostrEvent) {
         for reply in ev.direct_replies(nil) {
-            replies.add(id: reply.ref_id, reply_id: ev.id)
+            replies.add(id: reply, reply_id: ev.id)
         }
     }
     
@@ -278,7 +276,7 @@ class EventCache {
         return ev
     }
     
-    func lookup(_ evid: String) -> NostrEvent? {
+    func lookup(_ evid: NoteId) -> NostrEvent? {
         return events[evid]
     }
     

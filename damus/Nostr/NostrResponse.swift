@@ -8,9 +8,14 @@
 import Foundation
 
 struct CommandResult {
-    let event_id: String
+    let event_id: NoteId
     let ok: Bool
     let msg: String
+}
+
+enum MaybeResponse {
+    case bad
+    case ok(NostrResponse)
 }
 
 enum NostrResponse {
@@ -33,11 +38,13 @@ enum NostrResponse {
     }
 
     static func owned_from_json(json: String) -> NostrResponse? {
-        json.withCString { cstr in
+        return json.withCString{ cstr in
             let bufsize: Int = max(Int(Double(json.utf8.count) * 2.0), Int(getpagesize()))
             let data = malloc(bufsize)
+
             if data == nil {
-                return nil
+                let r: NostrResponse? = nil
+                return r
             }
             //guard var json_cstr = json.cString(using: .utf8) else { return nil }
 
@@ -47,15 +54,15 @@ enum NostrResponse {
             let len = ndb_ws_event_from_json(cstr, Int32(json.utf8.count), &tce, data, Int32(bufsize))
             if len <= 0 {
                 free(data)
-                let r: NostrResponse? = nil
-                return r
+                return nil
             }
 
             switch tce.evtype {
             case NDB_TCE_OK:
                 defer { free(data) }
 
-                guard let evid = sized_cstr(cstr: tce.subid, len: tce.subid_len),
+                guard let evid_str = sized_cstr(cstr: tce.subid, len: tce.subid_len),
+                      let evid = hex_decode_noteid(evid_str),
                       let msg  = sized_cstr(cstr: tce.command_result.msg, len: tce.command_result.msglen) else {
                     return nil
                 }

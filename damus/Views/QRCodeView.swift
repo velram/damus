@@ -9,10 +9,14 @@ import SwiftUI
 import CoreImage.CIFilterBuiltins
 
 struct ProfileScanResult: Equatable {
-    let pubkey: String
-    
-    init(hex: String) {
-        self.pubkey = hex
+    let pubkey: Pubkey
+
+    init?(hex: String) {
+        guard let pk = hex_decode(hex).map({ bytes in Pubkey(Data(bytes)) }) else {
+            return nil
+        }
+
+        self.pubkey = pk
     }
     
     init?(string: String) {
@@ -25,14 +29,17 @@ struct ProfileScanResult: Equatable {
             str.removeFirst("nostr:".count)
         }
         
-        if let _ = hex_decode(str), str.count == 64 {
-            self = .init(hex: str)
+        if let decoded = hex_decode(str),
+           str.count == 64
+        {
+            self.pubkey = Pubkey(Data(decoded))
             return
         }
         
-        if str.starts(with: "npub"), let b32 = try? bech32_decode(str) {
-            let hex = hex_encode(b32.data)
-            self = .init(hex: hex)
+        if str.starts(with: "npub"),
+           let b32 = try? bech32_decode(str)
+        {
+            self.pubkey = Pubkey(b32.data)
             return
         }
         
@@ -42,7 +49,7 @@ struct ProfileScanResult: Equatable {
 
 struct QRCodeView: View {
     let damus_state: DamusState
-    @State var pubkey: String
+    @State var pubkey: Pubkey
     
     @Environment(\.presentationMode) var presentationMode
     
@@ -56,14 +63,6 @@ struct QRCodeView: View {
     
     let generator = UIImpactFeedbackGenerator(style: .light)
 
-    var maybe_key: String? {
-        guard let key = bech32_pubkey(pubkey) else {
-            return nil
-        }
-
-        return key
-    }
-    
     @ViewBuilder
     func navImage(systemImage: String) -> some View {
         Image(systemName: systemImage)
@@ -143,18 +142,16 @@ struct QRCodeView: View {
             
             Spacer()
             
-            if let key = maybe_key {
-                Image(uiImage: generateQRCode(pubkey: "nostr:" + key))
-                    .interpolation(.none)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 300, height: 300)
-                    .cornerRadius(10)
-                    .overlay(RoundedRectangle(cornerRadius: 10)
-                        .stroke(DamusColors.white, lineWidth: 5.0))
-                    .shadow(radius: 10)
-            }
-            
+            Image(uiImage: generateQRCode(pubkey: "nostr:" + pubkey.npub))
+                .interpolation(.none)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 300, height: 300)
+                .cornerRadius(10)
+                .overlay(RoundedRectangle(cornerRadius: 10)
+                    .stroke(DamusColors.white, lineWidth: 5.0))
+                .shadow(radius: 10)
+
             Spacer()
             
             Text("Follow me on Nostr", comment: "Text on QR code view to prompt viewer looking at screen to follow the user.")
@@ -297,7 +294,7 @@ struct QRCodeView: View {
 
 struct QRCodeView_Previews: PreviewProvider {
     static var previews: some View {
-        QRCodeView(damus_state: test_damus_state(), pubkey: test_event.pubkey)
+        QRCodeView(damus_state: test_damus_state(), pubkey: test_note.pubkey)
     }
 }
 

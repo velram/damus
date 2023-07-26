@@ -51,12 +51,12 @@ struct SearchHeaderView: View {
 
     func unfollow(_ hashtag: String) {
         is_following = false
-        handle_unfollow(state: state, unfollow: .t(hashtag))
+        handle_unfollow(state: state, unfollow: FollowRef.hashtag(hashtag))
     }
 
     func follow(_ hashtag: String) {
         is_following = true
-        handle_follow(state: state, follow: .t(hashtag))
+        handle_follow(state: state, follow: .hashtag(hashtag))
     }
 
     func FollowButton(_ ht: String) -> some View {
@@ -94,25 +94,28 @@ struct SearchHeaderView: View {
             }
         }
         .onReceive(handle_notify(.followed)) { ref in
-            guard hashtag_matches_search(desc: self.described, ref: ref) else { return }
+            guard case .hashtag(let follow_ht) = ref,
+                  case .hashtag(let search_ht) = described,
+                  follow_ht == search_ht else {
+                return
+            }
+
             self.is_following = true
         }
         .onReceive(handle_notify(.unfollowed)) { ref in
-            guard hashtag_matches_search(desc: self.described, ref: ref) else { return }
+            guard case .hashtag(let follow_ht) = ref,
+                  case .hashtag(let search_ht) = described,
+                  follow_ht == search_ht else {
+                return
+            }
             self.is_following = false
         }
     }
 }
 
-func hashtag_matches_search(desc: DescribedSearch, ref: ReferencedId) -> Bool {
-    guard let ht = desc.is_hashtag, ref.key == "t" && ref.ref_id == ht
-    else { return false }
-    return true
-}
-
 func is_following_hashtag(contacts: NostrEvent?, hashtag: String) -> Bool {
     guard let contacts else { return false }
-    return is_already_following(contacts: contacts, follow: .t(hashtag))
+    return is_already_following(contacts: contacts, follow: .hashtag(hashtag))
 }
 
 

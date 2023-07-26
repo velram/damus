@@ -10,14 +10,14 @@ import Foundation
 
 class EventsModel: ObservableObject {
     let state: DamusState
-    let target: String
+    let target: NoteId
     let kind: NostrKind
     let sub_id = UUID().uuidString
     let profiles_id = UUID().uuidString
     
     @Published var events: [NostrEvent] = []
     
-    init(state: DamusState, target: String, kind: NostrKind) {
+    init(state: DamusState, target: NoteId, kind: NostrKind) {
         self.state = state
         self.target = target
         self.kind = kind
@@ -41,14 +41,11 @@ class EventsModel: ObservableObject {
     }
     
     private func handle_event(relay_id: String, ev: NostrEvent) {
-        guard ev.kind == kind.rawValue else {
+        guard ev.kind == kind.rawValue,
+              ev.referenced_ids.last == target else {
             return
         }
-        
-        guard ev.referenced_ids.last?.ref_id.string() == target else {
-            return
-        }
-        
+
         if insert_uniq_sorted_event(events: &self.events, new_ev: ev, cmp: { a, b in a.created_at < b.created_at } ) {
             objectWillChange.send()
         }

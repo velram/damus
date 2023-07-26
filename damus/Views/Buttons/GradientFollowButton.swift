@@ -35,19 +35,19 @@ struct GradientFollowButton: View {
                             .stroke(grayBorder, lineWidth: follow_state == .unfollows ? 0 : 1)
                     )
         }
-        .onReceive(handle_notify(.followed)) { ref in
-            guard target.pubkey == ref.ref_id else { return }
+        .onReceive(handle_notify(.followed)) { follow in
+            guard follow == target.follow_ref else { return }
             self.follow_state = .follows
         }
-        .onReceive(handle_notify(.unfollowed)) { ref in
-            guard target.pubkey == ref.ref_id else { return }
+        .onReceive(handle_notify(.unfollowed)) { unfollow in
+            guard unfollow == target.follow_ref else { return }
             self.follow_state = .unfollows
         }
     }
 }
 
 struct GradientFollowButtonPreviews: View {
-    let target: FollowTarget = .pubkey("")
+    let target: FollowTarget = .pubkey(.empty)
     var body: some View {
         VStack {
             Text(verbatim: "Unfollows")

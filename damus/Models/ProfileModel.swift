@@ -14,14 +14,14 @@ class ProfileModel: ObservableObject, Equatable {
     @Published var progress: Int = 0
     
     var events: EventHolder
-    let pubkey: String
+    let pubkey: Pubkey
     let damus: DamusState
     
-    var seen_event: Set<String> = Set()
+    var seen_event: Set<NoteId> = Set()
     var sub_id = UUID().description
     var prof_subid = UUID().description
     
-    init(pubkey: String, damus: DamusState) {
+    init(pubkey: Pubkey, damus: DamusState) {
         self.pubkey = pubkey
         self.damus = damus
         self.events = EventHolder(on_queue: { ev in
@@ -29,21 +29,12 @@ class ProfileModel: ObservableObject, Equatable {
         })
     }
     
-    func follows(pubkey: String) -> Bool {
+    func follows(pubkey: Pubkey) -> Bool {
         guard let contacts = self.contacts else {
             return false
         }
-        
-        for tag in contacts.tags {
-            guard tag.count >= 2,
-                  tag[0].matches_char("p"),
-                  tag[1].matches_str(pubkey)
-            else {
-                continue
-            }
-        }
-        
-        return false
+
+        return contacts.referenced_pubkeys.contains(pubkey)
     }
     
     func get_follow_target() -> FollowTarget {
@@ -77,7 +68,7 @@ class ProfileModel: ObservableObject, Equatable {
         text_filter.limit = 500
         
         print("subscribing to profile \(pubkey) with sub_id \(sub_id)")
-        print_filters(relay_id: "profile", filters: [[text_filter], [profile_filter]])
+        //print_filters(relay_id: "profile", filters: [[text_filter], [profile_filter]])
         damus.pool.subscribe(sub_id: sub_id, filters: [text_filter], handler: handle_event)
         damus.pool.subscribe(sub_id: prof_subid, filters: [profile_filter], handler: handle_event)
     }

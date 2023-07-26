@@ -9,9 +9,9 @@ import SwiftUI
 
 struct SearchedUser: Identifiable {
     let profile: Profile?
-    let pubkey: String
-    
-    var id: String {
+    let pubkey: Pubkey
+
+    var id: Pubkey {
         return pubkey
     }
 }
@@ -31,10 +31,7 @@ struct UserSearch: View {
     }
     
     func on_user_tapped(user: SearchedUser) {
-        guard let pk = bech32_pubkey(user.pubkey) else {
-            return
-        }
-
+        let pk = user.pubkey
         let user_tag = user_tag_attr_string(profile: user.profile, pubkey: pk)
 
         appendUserTag(withTag: user_tag)
@@ -151,7 +148,7 @@ func append_user_tag(tag: NSAttributedString, post: NSMutableAttributedString, w
 }
 
 /// Generate a mention attributed string, including the internal damus:nostr: link
-func user_tag_attr_string(profile: Profile?, pubkey: String) -> NSMutableAttributedString {
+func user_tag_attr_string(profile: Profile?, pubkey: Pubkey) -> NSMutableAttributedString {
     let display_name = Profile.displayName(profile: profile, pubkey: pubkey)
     let name = display_name.username.truncate(maxLength: 50)
     let tagString = "@\(name)"
@@ -159,7 +156,7 @@ func user_tag_attr_string(profile: Profile?, pubkey: String) -> NSMutableAttribu
     return NSMutableAttributedString(string: tagString, attributes: [
         NSAttributedString.Key.font: UIFont.systemFont(ofSize: 18.0),
         NSAttributedString.Key.foregroundColor: UIColor.label,
-        NSAttributedString.Key.link: "damus:nostr:\(pubkey)"
+        NSAttributedString.Key.link: "damus:nostr:\(pubkey.npub)"
     ])
 }
 

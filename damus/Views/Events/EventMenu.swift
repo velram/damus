@@ -10,7 +10,7 @@ import SwiftUI
 struct EventMenuContext: View {
     let event: NostrEvent
     let keypair: Keypair
-    let target_pubkey: String
+    let target_pubkey: Pubkey
     let bookmarks: BookmarksManager
     let muted_threads: MutedThreadsManager
     @ObservedObject var settings: UserSettingsStore
@@ -27,9 +27,7 @@ struct EventMenuContext: View {
     var body: some View {
         HStack {
             Menu {
-
                 MenuItems(event: event, keypair: keypair, target_pubkey: target_pubkey, bookmarks: bookmarks, muted_threads: muted_threads, settings: settings)
-                
             } label: {
                 Label("", systemImage: "ellipsis")
                     .foregroundColor(Color.gray)
@@ -44,7 +42,7 @@ struct EventMenuContext: View {
 struct MenuItems: View {
     let event: NostrEvent
     let keypair: Keypair
-    let target_pubkey: String
+    let target_pubkey: Pubkey
     let bookmarks: BookmarksManager
     let muted_threads: MutedThreadsManager
     @ObservedObject var settings: UserSettingsStore
@@ -52,7 +50,7 @@ struct MenuItems: View {
     @State private var isBookmarked: Bool = false
     @State private var isMutedThread: Bool = false
     
-    init(event: NostrEvent, keypair: Keypair, target_pubkey: String, bookmarks: BookmarksManager, muted_threads: MutedThreadsManager, settings: UserSettingsStore) {
+    init(event: NostrEvent, keypair: Keypair, target_pubkey: Pubkey, bookmarks: BookmarksManager, muted_threads: MutedThreadsManager, settings: UserSettingsStore) {
         let bookmarked = bookmarks.isBookmarked(event)
         self._isBookmarked = State(initialValue: bookmarked)
 
@@ -77,13 +75,13 @@ struct MenuItems: View {
             }
 
             Button {
-                UIPasteboard.general.string = bech32_pubkey(target_pubkey)
+                UIPasteboard.general.string = target_pubkey.npub
             } label: {
                 Label(NSLocalizedString("Copy user public key", comment: "Context menu option for copying the ID of the user who created the note."), image: "user")
             }
 
             Button {
-                UIPasteboard.general.string = bech32_note_id(event.id) ?? event.id
+                UIPasteboard.general.string = event.id.bech32
             } label: {
                 Label(NSLocalizedString("Copy note ID", comment: "Context menu option for copying the ID of the note."), image: "note-book")
             }

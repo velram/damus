@@ -57,7 +57,7 @@ enum ImageShape {
 struct ImageCarousel: View {
     var urls: [MediaUrl]
     
-    let evid: String
+    let evid: NoteId
     
     let state: DamusState
     
@@ -72,7 +72,7 @@ struct ImageCarousel: View {
     @State private var selectedIndex = 0
     @State private var video_size: CGSize? = nil
     
-    init(state: DamusState, evid: String, urls: [MediaUrl]) {
+    init(state: DamusState, evid: NoteId, urls: [MediaUrl]) {
         _open_sheet = State(initialValue: false)
         _current_url = State(initialValue: nil)
         let media_model = state.events.get_cache_data(evid).media_metadata_model
@@ -289,7 +289,7 @@ public struct ImageFill {
 struct ImageCarousel_Previews: PreviewProvider {
     static var previews: some View {
         let url: MediaUrl = .image(URL(string: "https://jb55.com/red-me.jpg")!)
-        ImageCarousel(state: test_damus_state(), evid: "evid", urls: [url, url])
+        ImageCarousel(state: test_damus_state(), evid: test_note.id, urls: [url, url])
     }
 }
 

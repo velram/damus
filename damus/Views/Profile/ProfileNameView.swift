@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ProfileNameView: View {
-    let pubkey: String
+    let pubkey: Pubkey
     let profile: Profile?
     let follows_you: Bool
     let damus: DamusState
@@ -45,7 +45,7 @@ struct ProfileNameView: View {
                 Spacer()
                 
                 KeyView(pubkey: pubkey)
-                    .pubkey_context_menu(bech32_pubkey: pubkey)
+                    .pubkey_context_menu(pubkey: pubkey)
             }
         }
     }
@@ -54,9 +54,9 @@ struct ProfileNameView: View {
 struct ProfileNameView_Previews: PreviewProvider {
     static var previews: some View {
         VStack {
-            ProfileNameView(pubkey: test_event.pubkey, profile: nil, follows_you: true, damus: test_damus_state())
-            
-            ProfileNameView(pubkey: test_event.pubkey, profile: nil, follows_you: false, damus: test_damus_state())
+            ProfileNameView(pubkey: test_note.pubkey, profile: nil, follows_you: true, damus: test_damus_state())
+
+            ProfileNameView(pubkey: test_note.pubkey, profile: nil, follows_you: false, damus: test_damus_state())
         }
     }
 }

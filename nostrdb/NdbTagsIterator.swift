@@ -73,10 +73,6 @@ struct TagsSequence: Encodable, Sequence {
         return .init(note: .init(note: .allocate(capacity: 1), owned_size: nil), tag: .allocate(capacity: 1))
     }
 
-    func references() -> References {
-        return References(tags: self)
-    }
-
     func makeIterator() -> TagsIterator {
         return .init(note: note)
     }

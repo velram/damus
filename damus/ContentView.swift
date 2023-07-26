@@ -43,9 +43,9 @@ enum Sheets: Identifiable {
     var id: String {
         switch self {
         case .report: return "report"
-        case .post(let action): return "post-" + (action.ev?.id ?? "")
-        case .event(let ev): return "event-" + ev.id
-        case .zap(let sheet): return "zap-" + sheet.target.id
+        case .post(let action): return "post-" + (action.ev?.id.hex() ?? "")
+        case .event(let ev): return "event-" + ev.id.hex()
+        case .zap(let sheet): return "zap-" + hex_encode(sheet.target.id)
         case .select_wallet: return "select-wallet"
         case .filter: return "filter"
         case .suggestedUsers: return "suggested-users"
@@ -70,11 +70,11 @@ enum FilterState : Int {
 struct ContentView: View {
     let keypair: Keypair
     
-    var pubkey: String {
+    var pubkey: Pubkey {
         return keypair.pubkey
     }
     
-    var privkey: String? {
+    var privkey: Privkey? {
         return keypair.privkey
     }
     
@@ -83,7 +83,7 @@ struct ContentView: View {
     @State var active_sheet: Sheets? = nil
     @State var damus_state: DamusState? = nil
     @SceneStorage("ContentView.selected_timeline") var selected_timeline: Timeline = .home
-    @State var muting: String? = nil
+    @State var muting: Pubkey? = nil
     @State var confirm_mute: Bool = false
     @State var user_muted_confirm: Bool = false
     @State var confirm_overwrite_mutelist: Bool = false
@@ -231,9 +231,9 @@ struct ContentView: View {
         navigationCoordinator.push(route: Route.Script(script: model))
     }
     
-    func open_profile(id: String) {
-        let profile_model = ProfileModel(pubkey: id, damus: damus_state!)
-        let followers = FollowersModel(damus_state: damus_state!, target: id)
+    func open_profile(pubkey: Pubkey) {
+        let profile_model = ProfileModel(pubkey: pubkey, damus: damus_state!)
+        let followers = FollowersModel(damus_state: damus_state!, target: pubkey)
         navigationCoordinator.push(route: Route.Profile(profile: profile_model, followers: followers))
     }
     
@@ -342,7 +342,7 @@ struct ContentView: View {
                 
                 switch res {
                 case .filter(let filt): self.open_search(filt: filt)
-                case .profile(let id):  self.open_profile(id: id)
+                case .profile(let pk):  self.open_profile(pubkey: pk)
                 case .event(let ev):    self.open_event(ev: ev)
                 case .wallet_connect(let nwc): self.open_wallet(nwc: nwc)
                 case .script(let data): self.open_script(data)
@@ -469,26 +469,29 @@ struct ContentView: View {
         .onReceive(handle_notify(.local_notification)) { local in
             guard let damus_state else { return }
 
-            if local.type == .profile_zap {
-                open_profile(id: local.event_id)
-                return
+            switch local.mention {
+            case .pubkey(let pubkey):
+                open_profile(pubkey: pubkey)
+
+            case .note(let noteId):
+                guard let target = damus_state.events.lookup(noteId) else {
+                    return
+                }
+
+                switch local.type {
+                case .dm:
+                    selected_timeline = .dms
+                    damus_state.dms.set_active_dm(target.pubkey)
+                    navigationCoordinator.push(route: Route.DMChat(dms: damus_state.dms.active_model))
+                case .like, .zap, .mention, .repost:
+                    open_event(ev: target)
+                case .profile_zap:
+                    // Handled separately above.
+                    break
+                }
             }
-            
-            guard let target = damus_state.events.lookup(local.event_id) else {
-                return
-            }
-            
-            switch local.type {
-            case .dm:
-                selected_timeline = .dms
-                damus_state.dms.set_active_dm(target.pubkey)
-                navigationCoordinator.push(route: Route.DMChat(dms: damus_state.dms.active_model))
-            case .like, .zap, .mention, .repost:
-                open_event(ev: target)
-            case .profile_zap:
-                // Handled separately above.
-                break
-            }
+
+
         }
         .onReceive(handle_notify(.onlyzaps_mode)) { hide in
             home.filter_events()
@@ -529,7 +532,7 @@ struct ContentView: View {
                 guard let ds = damus_state,
                       let keypair = ds.keypair.to_full(),
                       let pubkey = muting,
-                      let mutelist = create_or_update_mutelist(keypair: keypair, mprev: nil, to_add: pubkey)
+                      let mutelist = create_or_update_mutelist(keypair: keypair, mprev: nil, to_add: .pubkey(pubkey))
                 else {
                     return
                 }
@@ -556,16 +559,16 @@ struct ContentView: View {
                 if ds.contacts.mutelist == nil {
                     confirm_overwrite_mutelist = true
                 } else {
-                    guard let keypair = ds.keypair.to_full() else {
-                        return
-                    }
-                    guard let pubkey = muting else {
+                    guard let keypair = ds.keypair.to_full(),
+                          let pubkey = muting
+                    else {
                         return
                     }
 
-                    guard let ev = create_or_update_mutelist(keypair: keypair, mprev: ds.contacts.mutelist, to_add: pubkey) else {
+                    guard let ev = create_or_update_mutelist(keypair: keypair, mprev: ds.contacts.mutelist, to_add: .pubkey(pubkey)) else {
                         return
                     }
+
                     damus_state?.contacts.set_mutelist(ev)
                     ds.postbox.send(ev)
                 }
@@ -656,7 +659,7 @@ struct ContentView: View {
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView(keypair: Keypair(pubkey: "3efdaebb1d8923ebd99c9e7ace3b4194ab45512e2be79c1b7d68d9243e0d2681", privkey: nil))
+        ContentView(keypair: Keypair(pubkey: test_pubkey, privkey: nil))
     }
 }
 
@@ -760,18 +763,18 @@ struct FindEvent {
     let type: FindEventType
     let find_from: [String]?
     
-    static func profile(pubkey: String, find_from: [String]? = nil) -> FindEvent {
+    static func profile(pubkey: Pubkey, find_from: [String]? = nil) -> FindEvent {
         return FindEvent(type: .profile(pubkey), find_from: find_from)
     }
     
-    static func event(evid: String, find_from: [String]? = nil) -> FindEvent {
+    static func event(evid: NoteId, find_from: [String]? = nil) -> FindEvent {
         return FindEvent(type: .event(evid), find_from: find_from)
     }
 }
 
 enum FindEventType {
-    case profile(String)
-    case event(String)
+    case profile(Pubkey)
+    case event(NoteId)
 }
 
 enum FoundEvent {
@@ -871,7 +874,7 @@ func timeline_name(_ timeline: Timeline?) -> String {
 }
 
 @discardableResult
-func handle_unfollow(state: DamusState, unfollow: ReferencedId) -> Bool {
+func handle_unfollow(state: DamusState, unfollow: FollowRef) -> Bool {
     guard let keypair = state.keypair.to_full() else {
         return false
     }
@@ -887,18 +890,21 @@ func handle_unfollow(state: DamusState, unfollow: ReferencedId) -> Bool {
 
     state.contacts.event = ev
 
-    if unfollow.key == "p" {
-        state.contacts.remove_friend(unfollow.ref_id)
+    switch unfollow {
+    case .pubkey(let pk):
+        state.contacts.remove_friend(pk)
         state.user_search_cache.updateOwnContactsPetnames(id: state.pubkey, oldEvent: old_contacts, newEvent: ev)
+    case .hashtag:
+        // nothing to handle here really
+        break
     }
 
     return true
 }
 
-func handle_unfollow_notif(state: DamusState, target: FollowTarget) -> ReferencedId? {
-    let pk = target.pubkey
+func handle_unfollow_notif(state: DamusState, target: FollowTarget) -> FollowRef? {
+    let ref: FollowRef = .pubkey(target.pubkey)
 
-    let ref = ReferencedId.p(pk)
     if handle_unfollow(state: state, unfollow: ref) {
         return ref
     }
@@ -907,7 +913,7 @@ func handle_unfollow_notif(state: DamusState, target: FollowTarget) -> Reference
 }
 
 @discardableResult
-func handle_follow(state: DamusState, follow: ReferencedId) -> Bool {
+func handle_follow(state: DamusState, follow: FollowRef) -> Bool {
     guard let keypair = state.keypair.to_full() else {
         return false
     }
@@ -920,8 +926,12 @@ func handle_follow(state: DamusState, follow: ReferencedId) -> Bool {
     notify(.followed(follow))
 
     state.contacts.event = ev
-    if follow.key == "p" {
-        state.contacts.add_friend_pubkey(follow.ref_id)
+    switch follow {
+    case .pubkey(let pubkey):
+        state.contacts.add_friend_pubkey(pubkey)
+    case .hashtag:
+        // nothing to do
+        break
     }
 
     return true
@@ -936,7 +946,7 @@ func handle_follow_notif(state: DamusState, target: FollowTarget) -> Bool {
         state.contacts.add_friend_contact(ev)
     }
 
-    return handle_follow(state: state, follow: .p(target.pubkey))
+    return handle_follow(state: state, follow: .pubkey(target.pubkey))
 }
 
 func handle_post_notification(keypair: FullKeypair, postbox: PostBox, events: EventCache, post: NostrPostResult) -> Bool {
@@ -951,7 +961,7 @@ func handle_post_notification(keypair: FullKeypair, postbox: PostBox, events: Ev
         postbox.send(new_ev)
         for eref in new_ev.referenced_ids.prefix(3) {
             // also broadcast at most 3 referenced events
-            if let ev = events.lookup(eref.ref_id.string()) {
+            if let ev = events.lookup(eref) {
                 postbox.send(ev)
             }
         }
@@ -964,7 +974,7 @@ func handle_post_notification(keypair: FullKeypair, postbox: PostBox, events: Ev
 
 
 enum OpenResult {
-    case profile(String)
+    case profile(Pubkey)
     case filter(NostrFilter)
     case event(NostrEvent)
     case wallet_connect(WalletConnectURL)
@@ -984,13 +994,19 @@ func on_open_url(state: DamusState, url: URL, result: @escaping (OpenResult?) ->
     
     switch link {
     case .ref(let ref):
-        if ref.key == "p" {
-            result(.profile(ref.ref_id))
-        } else if ref.key == "e" {
-            find_event(state: state, query: .event(evid: ref.ref_id)) { res in
+        switch ref {
+        case .pubkey(let pk):
+            result(.profile(pk))
+        case .event(let noteid):
+            find_event(state: state, query: .event(evid: noteid)) { res in
                 guard let res, case .event(let ev) = res else { return }
                 result(.event(ev))
             }
+        case .hashtag(let ht):
+            result(.filter(.filter_hashtag([ht.string()])))
+        case .param, .quote:
+            // doesn't really make sense here
+            break
         }
     case .filter(let filt):
         result(.filter(filt))

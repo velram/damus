@@ -36,8 +36,9 @@ final class NdbTests: XCTestCase {
         XCTAssertNotNil(note)
         guard let note else { return }
 
-        let id = "20d0ff27d6fcb13de8366328c5b1a7af26bcac07f2e558fbebd5e9242e608c09"
-        let pubkey = "32e1827635450ebb3c5a7d12c1f8e7b2b514439ac10a67eef3d9fd9c5c68e245"
+        let id = NoteId(hex: "20d0ff27d6fcb13de8366328c5b1a7af26bcac07f2e558fbebd5e9242e608c09")!
+        let pubkey = Pubkey(hex: "32e1827635450ebb3c5a7d12c1f8e7b2b514439ac10a67eef3d9fd9c5c68e245")!
+
         XCTAssertEqual(note.id, id)
         XCTAssertEqual(note.pubkey, pubkey)
 

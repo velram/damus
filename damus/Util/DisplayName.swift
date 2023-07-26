@@ -37,7 +37,7 @@ enum DisplayName {
 }
 
 
-func parse_display_name(profile: Profile?, pubkey: String) -> DisplayName {
+func parse_display_name(profile: Profile?, pubkey: Pubkey) -> DisplayName {
     if pubkey == ANON_PUBKEY {
         return .one(NSLocalizedString("Anonymous", comment: "Placeholder display name of anonymous user."))
     }
@@ -60,7 +60,6 @@ func parse_display_name(profile: Profile?, pubkey: String) -> DisplayName {
     return .one(abbrev_bech32_pubkey(pubkey: pubkey))
 }
 
-func abbrev_bech32_pubkey(pubkey: String) -> String {
-    let pk = bech32_nopre_pubkey(pubkey) ?? pubkey
-    return abbrev_pubkey(pk)
+func abbrev_bech32_pubkey(pubkey: Pubkey) -> String {
+    return abbrev_pubkey(pubkey.npub)
 }

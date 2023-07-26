@@ -106,10 +106,8 @@ class damusTests: XCTestCase {
     func testBech32Url()  {
         let parsed = decode_nostr_uri("nostr:npub1xtscya34g58tk0z605fvr788k263gsu6cy9x0mhnm87echrgufzsevkk5s")
         
-        let hexpk = "32e1827635450ebb3c5a7d12c1f8e7b2b514439ac10a67eef3d9fd9c5c68e245"
-        let expected: NostrLink = .ref(ReferencedId(ref_id: hexpk, relay_id: nil, key: "p"))
-        
-        XCTAssertEqual(parsed, expected)
+        let pk = Pubkey(hex:"32e1827635450ebb3c5a7d12c1f8e7b2b514439ac10a67eef3d9fd9c5c68e245")!
+        XCTAssertEqual(parsed, .ref(.pubkey(pk)))
     }
     
     func testSaveRelayFilters() {
@@ -120,10 +118,9 @@ class damusTests: XCTestCase {
         filters.insert(filter1)
         filters.insert(filter2)
         
-        let pubkey = "test_pubkey"
-        save_relay_filters(pubkey, filters: filters)
-        let loaded_filters = load_relay_filters(pubkey)!
-        
+        save_relay_filters(test_pubkey, filters: filters)
+        let loaded_filters = load_relay_filters(test_pubkey)!
+
         XCTAssertEqual(loaded_filters.count, 2)
         XCTAssertTrue(loaded_filters.contains(filter1))
         XCTAssertTrue(loaded_filters.contains(filter2))

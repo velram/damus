@@ -68,10 +68,6 @@ class SearchModel: ObservableObject {
         let (sub_id, done) = handle_subid_event(pool: state.pool, relay_id: relay_id, ev: ev) { sub_id, ev in
             if ev.is_textlike && ev.should_show_event {
                 self.add_event(ev)
-            } else if ev.known_kind == .channel_create {
-                // unimplemented
-            } else if ev.known_kind == .channel_meta {
-                // unimplemented
             }
         }
         

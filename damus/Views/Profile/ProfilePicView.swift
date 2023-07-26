@@ -31,7 +31,7 @@ func pfp_line_width(_ h: Highlight) -> CGFloat {
 struct InnerProfilePicView: View {
     let url: URL?
     let fallbackUrl: URL?
-    let pubkey: String
+    let pubkey: Pubkey
     let size: CGFloat
     let highlight: Highlight
     let disable_animation: Bool
@@ -67,7 +67,7 @@ struct InnerProfilePicView: View {
 }
 
 struct ProfilePicView: View {
-    let pubkey: String
+    let pubkey: Pubkey
     let size: CGFloat
     let highlight: Highlight
     let profiles: Profiles
@@ -75,7 +75,7 @@ struct ProfilePicView: View {
     
     @State var picture: String?
     
-    init(pubkey: String, size: CGFloat, highlight: Highlight, profiles: Profiles, disable_animation: Bool, picture: String? = nil) {
+    init(pubkey: Pubkey, size: CGFloat, highlight: Highlight, profiles: Profiles, disable_animation: Bool, picture: String? = nil) {
         self.pubkey = pubkey
         self.profiles = profiles
         self.size = size
@@ -98,7 +98,7 @@ struct ProfilePicView: View {
     }
 }
 
-func get_profile_url(picture: String?, pubkey: String, profiles: Profiles) -> URL {
+func get_profile_url(picture: String?, pubkey: Pubkey, profiles: Profiles) -> URL {
     let pic = picture ?? profiles.lookup(id: pubkey)?.picture ?? robohash(pubkey)
     if let url = URL(string: pic) {
         return url
@@ -106,19 +106,19 @@ func get_profile_url(picture: String?, pubkey: String, profiles: Profiles) -> UR
     return URL(string: robohash(pubkey))!
 }
 
-func make_preview_profiles(_ pubkey: String) -> Profiles {
+func make_preview_profiles(_ pubkey: Pubkey) -> Profiles {
     let user_search_cache = UserSearchCache()
     let profiles = Profiles(user_search_cache: user_search_cache)
     let picture = "http://cdn.jb55.com/img/red-me.jpg"
     let profile = Profile(name: "jb55", display_name: "William Casarin", about: "It's me", picture: picture, banner: "", website: "https://jb55.com", lud06: nil, lud16: nil, nip05: "jb55.com", damus_donation: nil)
-    let ts_profile = TimestampedProfile(profile: profile, timestamp: 0, event: test_event)
+    let ts_profile = TimestampedProfile(profile: profile, timestamp: 0, event: test_note)
     profiles.add(id: pubkey, profile: ts_profile)
     return profiles
 }
 
 struct ProfilePicView_Previews: PreviewProvider {
-    static let pubkey = "ca48854ac6555fed8e439ebb4fa2d928410e0eef13fa41164ec45aaaa132d846"
-    
+    static let pubkey = test_note.pubkey
+
     static var previews: some View {
         ProfilePicView(
             pubkey: pubkey,
