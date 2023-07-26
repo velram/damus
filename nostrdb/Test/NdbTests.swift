@@ -24,6 +24,13 @@ final class NdbTests: XCTestCase {
         XCTAssertNotNil(resp)
     }
 
+    func test_decode_command_result() throws {
+        let json = "[\"OK\",\"b1d8f68d39c07ce5c5ea10c235100d529b2ed2250140b36a35d940b712dc6eff\",true,\"\"]"
+        let resp = decode_nostr_event(txt: json)
+        XCTAssertNotNil(resp)
+
+    }
+
     func test_ndb_note() throws {
         let note = NdbNote.owned_from_json(json: test_contact_list_json)
         XCTAssertNotNil(note)
