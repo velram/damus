@@ -31,7 +31,7 @@ struct NdbStrIter: IteratorProtocol {
     }
 }
 
-struct NdbTagElem: Sequence, Hashable {
+struct NdbTagElem: Sequence, Hashable, Equatable {
 
     let note: NdbNote
     let tag: UnsafeMutablePointer<ndb_tag>
@@ -83,6 +83,13 @@ struct NdbTagElem: Sequence, Hashable {
         return str.str[0] == c.cchar && str.str[1] == 0
     }
 
+    func matches_id(_ d: [UInt8]) -> Bool {
+        if str.flag == NDB_PACKED_ID, d.count == 32 {
+            return memcmp(d, str.id, 32) == 0
+        }
+        return false
+    }
+
     func matches_str(_ s: String) -> Bool {
         if str.flag == NDB_PACKED_ID,
            s.utf8.count == 64,
@@ -91,9 +98,7 @@ struct NdbTagElem: Sequence, Hashable {
             return memcmp(&decoded, str.id, 32) == 0
         }
 
-        let len = strlen(str.str)
-        guard len == s.utf8.count else { return false }
-        return s.withCString { cstr in memcmp(str.str, cstr, len) == 0 }
+        return s.withCString { cstr in strcmp(str.str, cstr) == 0 }
     }
 
     var ndbstr: ndb_str {

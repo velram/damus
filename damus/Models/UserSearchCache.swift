@@ -65,14 +65,14 @@ class UserSearchCache {
 
         // Gets all petnames from our new contacts list.
         newEvent.tags.forEach { tag in
-            guard tag.count >= 4 && tag[0] == "p" else {
+            guard tag.count >= 4 && tag[0].matches_char("p") else {
                 return
             }
 
             let pubkey = tag[1]
             let petname = tag[3]
 
-            petnames[pubkey] = petname
+            petnames[pubkey.string()] = petname.string()
         }
 
         // Compute the diff with the old contacts list, if it exists,
@@ -80,12 +80,12 @@ class UserSearchCache {
         // and remove the old ones that are different from the user search cache.
         if let oldEvent, oldEvent.known_kind == .contacts && oldEvent.pubkey == id {
             oldEvent.tags.forEach { tag in
-                guard tag.count >= 4 && tag[0] == "p" else {
+                guard tag.count >= 4 && tag[0].matches_char("p") else {
                     return
                 }
 
-                let pubkey = tag[1]
-                let oldPetname = tag[3]
+                let pubkey = tag[1].string()
+                let oldPetname = tag[3].string()
 
                 if let newPetname = petnames[pubkey] {
                     if newPetname.caseInsensitiveCompare(oldPetname) == .orderedSame {

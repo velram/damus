@@ -60,8 +60,8 @@ func get_mutelist_users(_ mlist: NostrEvent?) -> [String] {
     }
     
     return mutelist.tags.reduce(into: Array<String>()) { pks, tag in
-        if tag.count >= 2 && tag[0] == "p" {
-            pks.append(tag[1])
+        if tag.count >= 2 && tag[0].matches_str("p") {
+            pks.append(tag[1].string())
         }
     }
 }

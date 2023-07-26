@@ -19,13 +19,15 @@ class LikeTests: XCTestCase {
     }
 
     func testLikeHasNotification() throws {
-        let liked = NostrEvent(content: "awesome #[0] post", keypair: test_keypair, tags: [["p", "cindy"], ["e", "bob"]])!
+        let cindy = "9d9181f0aea6500e1f360e07b9f37e25c72169b5158ae78df53f295272b6b71c"
+        let bob = "218837fe8c94a66ae33af277bcbda45a0319e7726220cd76171b9dd1a468af91"
+        let liked = NostrEvent(content: "awesome #[0] post", keypair: test_keypair, tags: [["p", cindy], ["e", bob]])!
         let id = liked.id
         let like_ev = make_like_event(keypair: test_keypair_full, liked: liked)!
 
         XCTAssertTrue(like_ev.references(id: test_keypair.pubkey, key: "p"))
-        XCTAssertTrue(like_ev.references(id: "cindy", key: "p"))
-        XCTAssertTrue(like_ev.references(id: "bob", key: "e"))
+        XCTAssertTrue(like_ev.references(id: cindy, key: "p"))
+        XCTAssertTrue(like_ev.references(id: bob, key: "e"))
         XCTAssertEqual(like_ev.last_refid()!.ref_id, id)
     }
 

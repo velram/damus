@@ -552,11 +552,11 @@ class HomeModel {
             }
         }
         
-        guard let name = get_referenced_ids(tags: ev.tags, key: "d").first else {
+        guard let name = References.list(tags: ev.tags).first else {
             return
         }
         
-        guard name.ref_id == "mute" else {
+        guard name.ref_id.matches_str("mute") else {
             return
         }
         
@@ -1002,7 +1002,7 @@ func handle_incoming_dm(debouncer: Debouncer?, ev: NostrEvent, our_pubkey: Pubke
     var the_pk = ev.pubkey
     if ours {
         if let ref_pk = ev.referenced_pubkeys.first {
-            the_pk = ref_pk.ref_id
+            the_pk = ref_pk.ref_id.string()
         } else {
             // self dm!?
             print("TODO: handle self dm?")
@@ -1123,8 +1123,11 @@ func handle_last_events(debouncer: Debouncer?, new_events: NewEventsBits, ev: No
 
 /// Sometimes we get garbage in our notifications. Ensure we have our pubkey on this event
 func event_has_our_pubkey(_ ev: NostrEvent, our_pubkey: String) -> Bool {
+    guard let our_pk = hex_decode(our_pubkey) else {
+        return false
+    }
     for tag in ev.tags {
-        if tag.count >= 2 && tag[0] == "p" && tag[1] == our_pubkey {
+        if tag.count >= 2, tag[0].matches_char("p"), tag[1].matches_id(our_pk) {
             return true
         }
     }
@@ -1276,7 +1279,7 @@ func process_local_notification(damus_state: DamusState, event ev: NostrEvent) {
         create_local_notification(profiles: damus_state.profiles, notify: notify)
     } else if type == .like && damus_state.settings.like_notification,
               let evid = ev.referenced_ids.last?.ref_id,
-              let liked_event = damus_state.events.lookup(evid)
+              let liked_event = damus_state.events.lookup(evid.string())
     {
         let content_preview = render_notification_content_preview(cache: damus_state.events, ev: liked_event, profiles: damus_state.profiles, privkey: damus_state.keypair.privkey)
         let notify = LocalNotification(type: .like, event: ev, target: liked_event, content: content_preview)
@@ -1334,22 +1337,35 @@ enum ProcessZapResult {
     case failed
 }
 
+extension Sequence {
+    func just_one() -> Element? {
+        var got_one = false
+        var the_x: Element? = nil
+        for x in self {
+            guard !got_one else {
+                return nil
+            }
+            the_x = x
+            got_one = true
+        }
+        return the_x
+    }
+}
+
 // securely get the zap target's pubkey. this can be faked so we need to be
 // careful
 func get_zap_target_pubkey(ev: NostrEvent, events: EventCache) -> String? {
-    let etags = ev.referenced_ids
+    let etags = Array(ev.referenced_ids)
 
     guard let etag = etags.first else {
         // no etags, ptag-only case
 
-        let ptags = ev.referenced_pubkeys
-
-        // ensure that there is only 1 ptag to stop fake profile zap attacks
-        guard ptags.count == 1 else {
+        guard let a = ev.referenced_pubkeys.just_one() else {
             return nil
         }
 
-        return ptags.first?.id
+        // TODO: just return data here
+        return a.ref_id.string()
     }
 
     // we have an e-tag
@@ -1360,7 +1376,7 @@ func get_zap_target_pubkey(ev: NostrEvent, events: EventCache) -> String? {
     }
 
     // we can't trust the p tag on note zaps because they can be faked
-    return events.lookup(etag.id)?.pubkey
+    return events.lookup(etag.ref_id.string())?.pubkey
 }
 
 func process_zap_event(damus_state: DamusState, ev: NostrEvent, completion: @escaping (ProcessZapResult) -> Void) {

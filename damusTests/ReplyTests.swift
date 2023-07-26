@@ -19,11 +19,13 @@ class ReplyTests: XCTestCase {
     }
     
     func testMentionIsntReply() throws {
+        let evid = "4090a9017a2beac3f17795d1aafb80d9f2b9eda97e4738501082ed5c927be014"
         let content = "this is #[0] a mention"
-        let tags = [["e", "event_id"]]
-        let blocks = parse_note_content(content: content, tags: tags).blocks
-        let event_refs = interpret_event_refs(blocks: blocks, tags: tags)
-        
+        let tags = [["e", evid]]
+        let ev = NostrEvent(content: content, keypair: test_keypair, tags: tags)!
+        let blocks = parse_note_content(content: .note(ev)).blocks
+        let event_refs = interpret_event_refs(blocks: blocks, tags: ev.tags)
+
         XCTAssertEqual(event_refs.count, 1)
         
         let ref = event_refs[0]
@@ -32,13 +34,13 @@ class ReplyTests: XCTestCase {
         XCTAssertNil(ref.is_thread_id)
         XCTAssertNil(ref.is_direct_reply)
         XCTAssertEqual(ref.is_mention?.type, .event)
-        XCTAssertEqual(ref.is_mention?.ref.ref_id, "event_id")
+        XCTAssertEqual(ref.is_mention?.ref.ref_id.string(), evid)
     }
     
     func testUrlAnchorsAreNotHashtags() {
         let content = "this is my link: https://jb55.com/index.html#buybitcoin this is not a hashtag!"
         let blocks = parse_post_blocks(content: content)
-        
+
         XCTAssertEqual(blocks.count, 3)
         XCTAssertEqual(blocks[0].is_text, "this is my link: ")
         XCTAssertEqual(blocks[1].is_url, URL(string: "https://jb55.com/index.html#buybitcoin")!)
@@ -94,9 +96,10 @@ class ReplyTests: XCTestCase {
     func testRootReplyWithMention() throws {
         let content = "this is #[1] a mention"
         let tags = [["e", "thread_id"], ["e", "mentioned_id"]]
-        let blocks = parse_note_content(content: content, tags: tags).blocks
-        let event_refs = interpret_event_refs(blocks: blocks, tags: tags)
-        
+        let ev = NostrEvent(content: content, keypair: test_keypair, tags: tags)!
+        let blocks = parse_note_content(content: .note(ev)).blocks
+        let event_refs = interpret_event_refs(blocks: blocks, tags: ev.tags)
+
         XCTAssertEqual(event_refs.count, 2)
         XCTAssertNotNil(event_refs[0].is_reply)
         XCTAssertNotNil(event_refs[0].is_thread_id)
@@ -111,12 +114,12 @@ class ReplyTests: XCTestCase {
     
     func testEmptyMention() throws {
         let content = "this is some & content"
-        let tags: [[String]] = []
-        let blocks = parse_note_content(content: content, tags: tags).blocks
+        let ev = NostrEvent(content: content, keypair: test_keypair, tags: [])!
+        let blocks = parse_note_content(content: .note(ev)).blocks
         let post_blocks = parse_post_blocks(content: content)
-        let post_tags = make_post_tags(post_blocks: post_blocks, tags: tags)
-        let event_refs = interpret_event_refs(blocks: blocks, tags: tags)
-        
+        let post_tags = make_post_tags(post_blocks: post_blocks, tags: [])
+        let event_refs = interpret_event_refs(blocks: blocks, tags: ev.tags)
+
         XCTAssertEqual(event_refs.count, 0)
         XCTAssertEqual(post_tags.blocks.count, 1)
         XCTAssertEqual(post_tags.tags.count, 0)
@@ -126,7 +129,8 @@ class ReplyTests: XCTestCase {
     func testManyMentions() throws {
         let content = "#[10]"
         let tags: [[String]] = [[],[],[],[],[],[],[],[],[],[],["p", "3e999f94e2cb34ef44a64b351141ac4e51b5121b2d31aed4a6c84602a1144692"]]
-        let blocks = parse_note_content(content: content, tags: tags).blocks
+        let ev = NostrEvent(content: content, keypair: test_keypair, tags: tags)!
+        let blocks = parse_note_content(content: .note(ev)).blocks
         let mentions = blocks.filter { $0.is_mention != nil }
         XCTAssertEqual(mentions.count, 1)
     }
@@ -148,7 +152,7 @@ class ReplyTests: XCTestCase {
         let expected_render = "nostr:\(pk)\nnostr:\(pk)"
         XCTAssertEqual(post_note.content, expected_render)
 
-        let blocks = parse_note_content(content: post_note.content, tags: []).blocks
+        let blocks = parse_note_content(content: .content(post_note.content)).blocks
         let rendered = render_blocks(blocks: blocks)
 
         XCTAssertEqual(rendered, expected_render)
@@ -162,9 +166,10 @@ class ReplyTests: XCTestCase {
     func testThreadedReply() throws {
         let content = "this is some content"
         let tags = [["e", "thread_id"], ["e", "reply_id"]]
-        let blocks = parse_note_content(content: content, tags: tags).blocks
-        let event_refs = interpret_event_refs(blocks: blocks, tags: tags)
-        
+        let ev = NostrEvent(content: content, keypair: test_keypair, tags: tags)!
+        let blocks = parse_note_content(content: .note(ev)).blocks
+        let event_refs = interpret_event_refs(blocks: blocks, tags: ev.tags)
+
         XCTAssertEqual(event_refs.count, 2)
         let r1 = event_refs[0]
         let r2 = event_refs[1]
@@ -178,9 +183,10 @@ class ReplyTests: XCTestCase {
     func testRootReply() throws {
         let content = "this is a reply"
         let tags = [["e", "thread_id"]]
-        let blocks = parse_note_content(content: content, tags: tags).blocks
-        let event_refs = interpret_event_refs(blocks: blocks, tags: tags)
-        
+        let ev = NostrEvent(content: content, keypair: test_keypair, tags: tags)!
+        let blocks = parse_note_content(content: .note(ev)).blocks
+        let event_refs = interpret_event_refs(blocks: blocks, tags: ev.tags)
+
         XCTAssertEqual(event_refs.count, 1)
         let r = event_refs[0]
         
@@ -279,15 +285,17 @@ class ReplyTests: XCTestCase {
 
     func testNoReply() throws {
         let content = "this is a #[0] reply"
-        let blocks = parse_note_content(content: content, tags: []).blocks
-        let event_refs = interpret_event_refs(blocks: blocks, tags: [])
-        
+        let blocks = parse_note_content(content: .content(content)).blocks
+        let ev = NostrEvent(content: content, keypair: test_keypair, tags: [])!
+        let event_refs = interpret_event_refs(blocks: blocks, tags:ev.tags)
+
         XCTAssertEqual(event_refs.count, 0)
     }
     
     func testParseMention() throws {
-        let parsed = parse_note_content(content: "this is #[0] a mention", tags: [["e", "event_id"]]).blocks
-        
+        let ev = NostrEvent(content: "this is #[0] a mention", keypair: test_keypair, tags: [["e", "event_id"]])!
+        let parsed = parse_note_content(content: .note(ev)).blocks
+
         XCTAssertNotNil(parsed)
         XCTAssertEqual(parsed.count, 3)
         XCTAssertEqual(parsed[0].is_text, "this is ")
@@ -356,7 +364,6 @@ class ReplyTests: XCTestCase {
     }
     
     func testReplyMentions() throws {
-        let privkey = "0fc2092231f958f8d57d66f5e238bb45b6a2571f44c0ce024bbc6f3a9c8a15fe"
         let pubkey  = "30c6d1dc7f7c156794fa15055e651b758a61b99f50fcf759de59386050bf6ae2"
         let npub =    "npub1xrrdrhrl0s2k0986z5z4uegmwk9xrwvl2r70wkw7tyuxq59ldt3qh09eay"
 
@@ -370,7 +377,7 @@ class ReplyTests: XCTestCase {
         let ev = post_to_event(post: post, keypair: test_keypair_full)!
         
         XCTAssertEqual(ev.content, "this is a (nostr:\(npub)) mention")
-        XCTAssertEqual(ev.tags[2][1], pubkey)
+        XCTAssertEqual(ev.tags[2][1].string(), pubkey)
     }
     
     func testInvalidPostReference() throws {
@@ -461,7 +468,7 @@ class ReplyTests: XCTestCase {
     }
     
     func testParseInvalidMention() throws {
-        let parsed = parse_note_content(content: "this is #[0] a mention", tags: []).blocks
+        let parsed = parse_note_content(content: .content("this is #[0] a mention")).blocks
         
         XCTAssertNotNil(parsed)
         XCTAssertEqual(parsed.count, 3)

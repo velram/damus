@@ -28,10 +28,10 @@ final class ListTests: XCTestCase {
         XCTAssertEqual(mutelist.pubkey, pubkey)
         XCTAssertEqual(mutelist.content, "")
         XCTAssertEqual(mutelist.tags.count, 2)
-        XCTAssertEqual(mutelist.tags[0][0], "d")
-        XCTAssertEqual(mutelist.tags[0][1], "mute")
-        XCTAssertEqual(mutelist.tags[1][0], "p")
-        XCTAssertEqual(mutelist.tags[1][1], to_mute)
+        XCTAssertEqual(mutelist.tags[0][0].string(), "d")
+        XCTAssertEqual(mutelist.tags[0][1].string(), "mute")
+        XCTAssertEqual(mutelist.tags[1][0].string(), "p")
+        XCTAssertEqual(mutelist.tags[1][1].string(), to_mute)
     }
 
     func testCreateAndRemoveMuteList() throws {
@@ -45,8 +45,8 @@ final class ListTests: XCTestCase {
         XCTAssertEqual(new.pubkey, pubkey)
         XCTAssertEqual(new.content, "")
         XCTAssertEqual(new.tags.count, 1)
-        XCTAssertEqual(new.tags[0][0], "d")
-        XCTAssertEqual(new.tags[0][1], "mute")
+        XCTAssertEqual(new.tags[0][0].string(), "d")
+        XCTAssertEqual(new.tags[0][1].string(), "mute")
     }
     
     func testAddToExistingMutelist() throws {
@@ -61,11 +61,11 @@ final class ListTests: XCTestCase {
         XCTAssertEqual(new.pubkey, pubkey)
         XCTAssertEqual(new.content, "")
         XCTAssertEqual(new.tags.count, 3)
-        XCTAssertEqual(new.tags[0][0], "d")
-        XCTAssertEqual(new.tags[0][1], "mute")
-        XCTAssertEqual(new.tags[1][0], "p")
-        XCTAssertEqual(new.tags[1][1], to_mute)
-        XCTAssertEqual(new.tags[2][0], "p")
-        XCTAssertEqual(new.tags[2][1], to_mute_2)
+        XCTAssertEqual(new.tags[0][0].string(), "d")
+        XCTAssertEqual(new.tags[0][1].string(), "mute")
+        XCTAssertEqual(new.tags[1][0].string(), "p")
+        XCTAssertEqual(new.tags[1][1].string(), to_mute)
+        XCTAssertEqual(new.tags[2][0].string(), "p")
+        XCTAssertEqual(new.tags[2][1].string(), to_mute_2)
     }
 }

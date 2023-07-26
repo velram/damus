@@ -89,16 +89,16 @@ class SearchModel: ObservableObject {
 
 func event_matches_hashtag(_ ev: NostrEvent, hashtags: [String]) -> Bool {
     for tag in ev.tags {
-        if tag_is_hashtag(tag) && hashtags.contains(tag[1]) {
+        if tag_is_hashtag(tag) && hashtags.contains(tag[1].string()) {
             return true
         }
     }
     return false
 }
 
-func tag_is_hashtag(_ tag: [String]) -> Bool {
+func tag_is_hashtag(_ tag: Tag) -> Bool {
     // "hashtag" is deprecated, will remove in the future
-    return tag.count >= 2 && (tag[0] == "hashtag" || tag[0] == "t")
+    return tag.count >= 2 && tag[0].matches_char("t")
 }
 
 func event_matches_filter(_ ev: NostrEvent, filter: NostrFilter) -> Bool {

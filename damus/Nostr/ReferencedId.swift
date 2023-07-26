@@ -7,20 +7,17 @@
 
 import Foundation
 
-struct Reference {
+struct Reference: Equatable {
     let key: AsciiCharacter
-    let id: NdbTagElem
-    var ref_id: NdbTagElem {
-        id
-    }
+    var ref_id: NdbTagElem
 
     func to_referenced_id() -> ReferencedId {
-        ReferencedId(ref_id: id.string(), relay_id: nil, key: key.string)
+        ReferencedId(ref_id: ref_id.string(), relay_id: nil, key: key.string)
     }
 }
 
 func tagref_should_be_id(_ tag: NdbTagElem) -> Bool {
-    return !tag.matches_char("t")
+    return !(tag.matches_char("t") || tag.matches_char("d"))
 }
 
 struct References: Sequence, IteratorProtocol {
@@ -37,7 +34,7 @@ struct References: Sequence, IteratorProtocol {
 
             for c in key {
                 guard let a = AsciiCharacter(c) else { break }
-                return Reference(key: a, id: id)
+                return Reference(key: a, ref_id: id)
             }
         }
 
@@ -58,6 +55,11 @@ struct References: Sequence, IteratorProtocol {
     static func hashtags(tags: TagsSequence) -> LazyFilterSequence<References> {
         References(tags: tags).lazy
             .filter() { ref in ref.key == "t" }
+    }
+
+    static func list(tags: TagsSequence) -> LazyFilterSequence<References> {
+        References(tags: tags).lazy
+            .filter() { ref in ref.key == "d" }
     }
 
     init(tags: TagsSequence) {

@@ -29,9 +29,9 @@ final class EventGroupViewTests: XCTestCase {
         let damusState = test_damus_state()
 
         let encodedPost = "{\"id\": \"8ba545ab96959fe0ce7db31bc10f3ac3aa5353bc4428dbf1e56a7be7062516db\",\"pubkey\": \"7e27509ccf1e297e1df164912a43406218f8bd80129424c3ef798ca3ef5c8444\",\"created_at\": 1677013417,\"kind\": 1,\"tags\": [],\"content\": \"hello\",\"sig\": \"93684f15eddf11f42afbdd81828ee9fc35350344d8650c78909099d776e9ad8d959cd5c4bff7045be3b0b255144add43d0feef97940794a1bc9c309791bebe4a\"}"
-        let pk1 = Keypair(pubkey: "pk1", privkey: nil)
-        let pk2 = Keypair(pubkey: "pk2", privkey: nil)
-        let pk3 = Keypair(pubkey: "pk3", privkey: nil)
+        let pk1 = Keypair(pubkey: "1723a4dcc6596d84472eb74d579114d8c46b533c81a0ac76620a7605d3ff76e0", privkey: nil)
+        let pk2 = Keypair(pubkey: "08c43696702ba1d720e4564b4ad895efdc3716b37468fb288e585368950a428a", privkey: nil)
+        let pk3 = Keypair(pubkey: "4e563600925231e9eb35a61842c2c6c19685aa8eefdfad076d6a3f853453a299", privkey: nil)
         let repost1 = NostrEvent(content: encodedPost, keypair: pk1, kind: NostrKind.boost.rawValue, tags: [], createdAt: 1)!
         let repost2 = NostrEvent(content: encodedPost, keypair: pk2, kind: NostrKind.boost.rawValue, tags: [], createdAt: 1)!
         let repost3 = NostrEvent(content: encodedPost, keypair: pk3, kind: NostrKind.boost.rawValue, tags: [], createdAt: 1)!
@@ -48,9 +48,9 @@ final class EventGroupViewTests: XCTestCase {
 
         let encodedPost = "{\"id\": \"8ba545ab96959fe0ce7db31bc10f3ac3aa5353bc4428dbf1e56a7be7062516db\",\"pubkey\": \"7e27509ccf1e297e1df164912a43406218f8bd80129424c3ef798ca3ef5c8444\",\"created_at\": 1677013417,\"kind\": 1,\"tags\": [],\"content\": \"hello\",\"sig\": \"93684f15eddf11f42afbdd81828ee9fc35350344d8650c78909099d776e9ad8d959cd5c4bff7045be3b0b255144add43d0feef97940794a1bc9c309791bebe4a\"}"
 
-        let pk1 = Keypair(pubkey: "pk1", privkey: nil)
-        let pk2 = Keypair(pubkey: "pk2", privkey: nil)
-        let pk3 = Keypair(pubkey: "pk3", privkey: nil)
+        let pk1 = Keypair(pubkey: "938afd5f44fdf293546767dcc024b4ec09b9df422fad10d577a846f88f56c8f5", privkey: nil)
+        let pk2 = Keypair(pubkey: "6b9bb7acbcdf0458a81b9e6d29bb1e23ab9b5d288e9b7fa8cee8dedc9082a466", privkey: nil)
+        let pk3 = Keypair(pubkey: "b9f00c1f12b0b7a2e3960565af7aba71da9678d90faeb60bc19813f3a28840de", privkey: nil)
 
         let repost1 = NostrEvent(content: encodedPost, keypair: pk1, kind: NostrKind.boost.rawValue, tags: [], createdAt: 1)!
         let repost2 = NostrEvent(content: encodedPost, keypair: pk2, kind: NostrKind.boost.rawValue, tags: [], createdAt: 1)!

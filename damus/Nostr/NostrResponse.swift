@@ -13,7 +13,7 @@ struct CommandResult {
     let msg: String
 }
 
-enum NostrResponse: Decodable {
+enum NostrResponse {
     case event(String, NostrEvent)
     case notice(String)
     case eose(String)
@@ -32,48 +32,71 @@ enum NostrResponse: Decodable {
         }
     }
 
-    init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
+    static func owned_from_json(json: String) -> NostrResponse? {
+        json.withCString { cstr in
+            let bufsize: Int = max(Int(Double(json.utf8.count) * 2.0), Int(getpagesize()))
+            let data = malloc(bufsize)
+            if data == nil {
+                return nil
+            }
+            //guard var json_cstr = json.cString(using: .utf8) else { return nil }
 
-        // Only use first item
-        let typ = try container.decode(String.self)
-        if typ == "EVENT" {
-            let sub_id = try container.decode(String.self)
-            var ev: NostrEvent
-            do {
-                ev = try container.decode(NostrEvent.self)
-            } catch {
-                print(error)
-                throw error
+            //json_cs
+            var tce = ndb_tce()
+
+            let len = ndb_ws_event_from_json(cstr, Int32(json.utf8.count), &tce, data, Int32(bufsize))
+            if len <= 0 {
+                free(data)
+                let r: NostrResponse? = nil
+                return r
             }
-            //ev.pow = count_hash_leading_zero_bits(ev.id)
-            self = .event(sub_id, ev)
-            return
-        } else if typ == "NOTICE" {
-            let msg = try container.decode(String.self)
-            self = .notice(msg)
-            return
-        } else if typ == "EOSE" {
-            let sub_id = try container.decode(String.self)
-            self = .eose(sub_id)
-            return
-        } else if typ == "OK" {
-            var cr: CommandResult
-            do {
-                let event_id = try container.decode(String.self)
-                let ok = try container.decode(Bool.self)
-                let msg = try container.decode(String.self)
-                cr = CommandResult(event_id: event_id, ok: ok, msg: msg)
-            } catch {
-                print(error)
-                throw error
+
+            switch tce.evtype {
+            case NDB_TCE_OK:
+                defer { free(data) }
+
+                guard let evid = sized_cstr(cstr: tce.subid, len: tce.subid_len),
+                      let msg  = sized_cstr(cstr: tce.command_result.msg, len: tce.command_result.msglen) else {
+                    return nil
+                }
+                let cr = CommandResult(event_id: evid, ok: tce.command_result.ok == 1, msg: msg)
+
+                return .ok(cr)
+            case NDB_TCE_EOSE:
+                defer { free(data) }
+
+                guard let subid = sized_cstr(cstr: tce.subid, len: tce.subid_len) else {
+                    return nil
+                }
+                return .eose(subid)
+            case NDB_TCE_EVENT:
+
+                // Create new Data with just the valid bytes
+                guard let note_data = realloc(data, Int(len)) else {
+                    free(data)
+                    return nil
+                }
+                let new_note = note_data.assumingMemoryBound(to: ndb_note.self)
+                let note = NdbNote(note: new_note, owned_size: Int(len))
+
+                guard let subid = sized_cstr(cstr: tce.subid, len: tce.subid_len) else {
+                    free(data)
+                    return nil
+                }
+                return .event(subid, note)
+            case NDB_TCE_NOTICE:
+                free(data)
+                return .notice("")
+            default:
+                free(data)
+                return nil
             }
-            self = .ok(cr)
-            return
-            //ev.pow = count_hash_leading_zero_bits(ev.id)
         }
-
-        throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "expected EVENT, NOTICE or OK, got \(typ)"))
     }
+}
+
+func sized_cstr(cstr: UnsafePointer<CChar>, len: Int32) -> String? {
+    let msgbuf = Data(bytes: cstr, count: Int(len))
+    return String(data: msgbuf, encoding: .utf8)
 }
 

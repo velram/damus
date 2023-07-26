@@ -82,7 +82,7 @@ class Contacts {
     func add_friend_contact(_ contact: NostrEvent) {
         friends.insert(contact.pubkey)
         for tag in contact.referenced_pubkeys {
-            let pk = tag.id.string()
+            let pk = tag.ref_id.string()
             friend_of_friends.insert(pk)
 
             // Exclude themself and us.

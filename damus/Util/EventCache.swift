@@ -360,7 +360,7 @@ func get_preload_plan(evcache: EventCache, ev: NostrEvent, our_keypair: Keypair,
     }
 
     // Cached event might not have the note language determined yet, so determine the language here before figuring out if translations should be preloaded.
-    let note_lang = cache.translations_model.note_language ?? ev.note_language(our_keypair.privkey) ?? current_language()
+    let note_lang = cache.translations_model.note_language ?? /*ev.note_language(our_keypair.privkey)*/ current_language()
 
     let load_translations = should_preload_translation(event: ev, our_keypair: our_keypair, current_status: cache.translations, settings: settings, note_lang: note_lang)
     if load_translations {
@@ -459,7 +459,7 @@ func preload_event(plan: PreloadPlan, state: DamusState) async {
     }
     
     let note_language = plan.data.translations_model.note_language ?? plan.event.note_language(our_keypair.privkey) ?? current_language()
-    
+
     var translations: TranslateStatus? = nil
     // We have to recheck should_translate here now that we have note_language
     if plan.load_translations && should_translate(event: plan.event, our_keypair: our_keypair, settings: settings, note_lang: note_language) && settings.auto_translate

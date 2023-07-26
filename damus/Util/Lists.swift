@@ -30,7 +30,7 @@ func create_or_update_list_event(keypair: FullKeypair, mprev: NostrEvent?, to_ad
 func remove_from_list_event(keypair: FullKeypair, prev: NostrEvent, to_remove: String, tag_type: String) -> NostrEvent? {
     var exists = false
     for tag in prev.tags {
-        if tag.count >= 2 && tag[0] == tag_type && tag[1] == to_remove {
+        if tag.count >= 2 && tag[0].matches_str(tag_type) && tag[1].matches_str(to_remove) {
             exists = true
         }
     }
@@ -41,30 +41,30 @@ func remove_from_list_event(keypair: FullKeypair, prev: NostrEvent, to_remove: S
     }
     
     let new_tags = prev.tags.filter { tag in
-        !(tag.count >= 2 && tag[0] == tag_type && tag[1] == to_remove)
+        !(tag.count >= 2 && tag[0].matches_str(tag_type) && tag[1].matches_str(to_remove))
     }
         
-    return NostrEvent(content: prev.content, keypair: keypair.to_keypair(), kind: 30000, tags: new_tags)
+    return NostrEvent(content: prev.content, keypair: keypair.to_keypair(), kind: 30000, tags: new_tags.map { $0.strings() })
 }
 
 func add_to_list_event(keypair: FullKeypair, prev: NostrEvent, to_add: String, tag_type: String) -> NostrEvent? {
     for tag in prev.tags {
         // we are already muting this user
-        if tag.count >= 2 && tag[0] == tag_type && tag[1] == to_add {
+        if tag.count >= 2 && tag[0].matches_str(tag_type) && tag[1].matches_str(to_add) {
             return nil
         }
     }
 
-    var tags = Array(prev.tags)
+    var tags = prev.tags.strings()
     tags.append([tag_type, to_add])
 
     return NostrEvent(content: prev.content, keypair: keypair.to_keypair(), kind: 30000, tags: tags)
 }
 
-func matches_list_name(tags: [[String]], name: String) -> Bool {
+func matches_list_name(tags: Tags, name: String) -> Bool {
     for tag in tags {
-        if tag.count >= 2 && tag[0] == "d" {
-            return tag[1] == name
+        if tag.count >= 2 && tag[0].matches_char("d") {
+            return tag[1].matches_str(name)
         }
     }
 

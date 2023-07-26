@@ -197,8 +197,8 @@ class NotificationsModel: ObservableObject, ScrollQueue {
             return false
         }
         
-        let id = ref_id.id
-        
+        let id = ref_id.ref_id
+
         if let evgrp = self.reactions[id.string()] {
             return evgrp.insert(ev)
         } else {

@@ -7,75 +7,50 @@
 
 import Foundation
 
-func tag_to_refid_ndb(_ tag: TagSequence) -> ReferencedId? {
-    guard tag.count >= 2 else { return nil }
-
-    let key = tag[0].string()
-    let ref_id = tag[1].string()
-
-    var relay_id: String? = nil
-    if tag.count >= 3 {
-        relay_id = tag[2].string()
-    }
-
-    return ReferencedId(ref_id: ref_id, relay_id: relay_id, key: key)
+enum NoteContent {
+    case note(NdbNote)
+    case content(String)
 }
 
-func convert_mention_index_block_ndb(ind: Int, tags: TagsSequence) -> Block? {
-    if ind < 0 || (ind + 1 > tags.count) || tags[ind]!.count < 2 {
-        return .text("#[\(ind)]")
-    }
-        
-    guard let tag = tags[ind], let fst = tag.first(where: { _ in true }) else {
-        return nil
-    }
-
-    guard let mention_type = parse_mention_type_ndb(fst) else {
-        return .text("#[\(ind)]")
-    }
-    
-    guard let ref = tag_to_refid_ndb(tag) else {
-        return .text("#[\(ind)]")
-    }
-    
-    return .mention(Mention(index: ind, type: mention_type, ref: ref))
-}
-
-
-func convert_block_ndb(_ b: block_t, tags: TagsSequence) -> Block? {
-    if b.type == BLOCK_MENTION_INDEX {
-        return convert_mention_index_block_ndb(ind: Int(b.block.mention_index), tags: tags)
-    }
-
-    return convert_block(b, tags: [])
-}
-
-
-func parse_note_content_ndb(note: NdbNote) -> Blocks {
+func parse_note_content(content: NoteContent) -> Blocks {
     var out: [Block] = []
     
     var bs = note_blocks()
     bs.num_blocks = 0;
     
     blocks_init(&bs)
-    
-    damus_parse_content(&bs, note.content_raw)
 
-    var i = 0
-    while (i < bs.num_blocks) {
-        let block = bs.blocks[i]
-        
-        if let converted = convert_block_ndb(block, tags: note.tags) {
-            out.append(converted)
+    var ts: TagsSequence? = nil
+
+    let parsed_blocks_finish = {
+        var i = 0
+        while (i < bs.num_blocks) {
+            let block = bs.blocks[i]
+
+            if let converted = convert_block(block, tags: ts) {
+                out.append(converted)
+            }
+
+            i += 1
         }
-        
-        i += 1
+
+        let words = Int(bs.words)
+        blocks_free(&bs)
+
+        return Blocks(words: words, blocks: out)
     }
-    
-    let words = Int(bs.words)
-    blocks_free(&bs)
-    
-    return Blocks(words: words, blocks: out)
+
+    switch content {
+    case .content(let c):
+        return c.withCString { cptr in
+            damus_parse_content(&bs, cptr)
+            return parsed_blocks_finish()
+        }
+    case .note(let note):
+        ts = note.tags
+        damus_parse_content(&bs, note.content_raw)
+        return parsed_blocks_finish()
+    }
 }
 
 func interpret_event_refs_ndb(blocks: [Block], tags: TagsSequence) -> [EventRef] {
@@ -130,7 +105,7 @@ func interp_event_refs_with_mentions_ndb(tags: TagsSequence, mention_indices: Se
     for tag in tags {
         if tag.count >= 2,
            tag[0].matches_char("e"),
-           let ref = tag_to_refid_ndb(tag)
+           let ref = tag_to_refid(tag)
         {
             if mention_indices.contains(i) {
                 let mention = Mention(index: i, type: .event, ref: ref)

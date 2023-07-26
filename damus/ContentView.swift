@@ -951,7 +951,7 @@ func handle_post_notification(keypair: FullKeypair, postbox: PostBox, events: Ev
         postbox.send(new_ev)
         for eref in new_ev.referenced_ids.prefix(3) {
             // also broadcast at most 3 referenced events
-            if let ev = events.lookup(eref.ref_id) {
+            if let ev = events.lookup(eref.ref_id.string()) {
                 postbox.send(ev)
             }
         }

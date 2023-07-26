@@ -34,7 +34,7 @@ enum NdbData {
     }
 }
 
-class NdbNote: Equatable, Hashable {
+class NdbNote: Encodable, Equatable, Hashable {
     // we can have owned notes, but we can also have lmdb virtual-memory mapped notes so its optional
     private let owned: Bool
     let count: Int
@@ -70,6 +70,10 @@ class NdbNote: Equatable, Hashable {
     var id: String {
         hex_encode(Data(buffer: UnsafeBufferPointer(start: ndb_note_id(note), count: 32)))
     }
+
+    var sig: String {
+        hex_encode(Data(buffer: UnsafeBufferPointer(start: ndb_note_sig(note), count: 64)))
+    }
     
     /// NDBTODO: make this into data
     var pubkey: String {
@@ -102,14 +106,28 @@ class NdbNote: Equatable, Hashable {
         hasher.combine(id)
     }
 
-    static let max_note_size: Int = 2 << 18
+    private enum CodingKeys: String, CodingKey {
+        case id, sig, tags, pubkey, created_at, kind, content
+    }
+
+    // Implement the `Encodable` protocol
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(id, forKey: .id)
+        try container.encode(sig, forKey: .sig)
+        try container.encode(pubkey, forKey: .pubkey)
+        try container.encode(created_at, forKey: .created_at)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(content, forKey: .content)
+        try container.encode(tags, forKey: .tags)
+    }
 
     init?(content: String, keypair: Keypair, kind: UInt32 = 1, tags: [[String]] = [], createdAt: UInt32 = UInt32(Date().timeIntervalSince1970)) {
 
         var builder = ndb_builder()
         let buflen = MAX_NOTE_SIZE
         let buf = malloc(buflen)
-        let idbuf = malloc(buflen)
 
         ndb_builder_init(&builder, buf, Int32(buflen))
 
@@ -119,17 +137,24 @@ class NdbNote: Equatable, Hashable {
         ndb_builder_set_kind(&builder, UInt32(kind))
         ndb_builder_set_created_at(&builder, createdAt)
 
+        var ok = true
         for tag in tags {
             ndb_builder_new_tag(&builder);
             for elem in tag {
-                _ = elem.withCString { eptr in
-                    ndb_builder_push_tag_str(&builder, eptr, Int32(elem.utf8.count))
+                ok = elem.withCString({ eptr in
+                    return ndb_builder_push_tag_str(&builder, eptr, Int32(elem.utf8.count)) > 0
+                })
+                if !ok {
+                    return nil
                 }
             }
         }
 
-        _ = content.withCString { cptr in
-            ndb_builder_set_content(&builder, content, Int32(content.utf8.count));
+        ok = content.withCString { cptr in
+            return ndb_builder_set_content(&builder, cptr, Int32(content.utf8.count)) > 0
+        }
+        if !ok {
+            return nil
         }
 
         var n = UnsafeMutablePointer<ndb_note>?(nil)
@@ -137,7 +162,9 @@ class NdbNote: Equatable, Hashable {
         let keypair = keypair.privkey.map { sec in
             var kp = ndb_keypair()
             return sec.withCString { secptr in
-                ndb_decode_key(secptr, &kp)
+                if ndb_decode_key(secptr, &kp) <= 0 {
+                    print("bad keypair")
+                }
                 return kp
             }
         }
@@ -149,11 +176,23 @@ class NdbNote: Equatable, Hashable {
             len = ndb_builder_finalize(&builder, &n, nil)
         }
 
-        free(idbuf)
+        if len <= 0 {
+            free(buf)
+            return nil
+        }
+
+        //guard let n else { return nil }
 
         self.owned = true
         self.count = Int(len)
-        self.note = realloc(n, Int(len)).assumingMemoryBound(to: ndb_note.self)
+        //self.note = n
+        let r = realloc(buf, Int(len))
+        guard let r else {
+            free(buf)
+            return nil
+        }
+
+        self.note = r.assumingMemoryBound(to: ndb_note.self)
     }
 
     static func owned_from_json(json: String, bufsize: Int = 2 << 18) -> NdbNote? {
@@ -210,7 +249,7 @@ extension NdbNote {
     //}
 
     func get_blocks(content: String) -> Blocks {
-        return parse_note_content_ndb(note: self)
+        return parse_note_content(content: .note(self))
     }
 
     func get_inner_event(cache: EventCache) -> NostrEvent? {
@@ -218,9 +257,9 @@ extension NdbNote {
             return nil
         }
 
-        if self.content == "", let ref = self.referenced_ids.first {
+        if self.content_len == 0, let ref = self.referenced_ids.first {
             // TODO: raw id cache lookups
-            let id = ref.id.string()
+            let id = ref.ref_id.string()
             return cache.lookup(id)
         }
 
@@ -337,8 +376,12 @@ extension NdbNote {
 
     // NDBTODO: id -> data
     public func references(id: String, key: AsciiCharacter) -> Bool {
+        var matcher: (Reference) -> Bool = { ref in ref.ref_id.matches_str(id) }
+        if id.count == 64, let decoded = hex_decode(id) {
+            matcher = { ref in ref.ref_id.matches_id(decoded) }
+        }
         for ref in References(tags: self.tags) {
-            if ref.key == key && ref.id.string() == id {
+            if ref.key == key && matcher(ref) {
                 return true
             }
         }
@@ -350,28 +393,31 @@ extension NdbNote {
         return event_is_reply(self.event_refs(privkey))
     }
 
-    func note_language(_ privkey: String?) async -> String? {
-        let t = Task.detached {
-            // Rely on Apple's NLLanguageRecognizer to tell us which language it thinks the note is in
-            // and filter on only the text portions of the content as URLs and hashtags confuse the language recognizer.
-            let originalBlocks = self.blocks(privkey).blocks
-            let originalOnlyText = originalBlocks.compactMap { $0.is_text }.joined(separator: " ")
+    func note_language(_ privkey: String?) -> String? {
+        assert(!Thread.isMainThread, "This function must not be run on the main thread.")
 
-            // Only accept language recognition hypothesis if there's at least a 50% probability that it's accurate.
-            let languageRecognizer = NLLanguageRecognizer()
-            languageRecognizer.processString(originalOnlyText)
+        // Rely on Apple's NLLanguageRecognizer to tell us which language it thinks the note is in
+        // and filter on only the text portions of the content as URLs and hashtags confuse the language recognizer.
+        let originalBlocks = self.blocks(privkey).blocks
+        let originalOnlyText = originalBlocks.compactMap { $0.is_text }.joined(separator: " ")
 
-            guard let locale = languageRecognizer.languageHypotheses(withMaximum: 1).first(where: { $0.value >= 0.5 })?.key.rawValue else {
-                let nstr: String? = nil
-                return nstr
-            }
+        // Only accept language recognition hypothesis if there's at least a 50% probability that it's accurate.
+        let languageRecognizer = NLLanguageRecognizer()
+        languageRecognizer.processString(originalOnlyText)
 
-            // Remove the variant component and just take the language part as translation services typically only supports the variant-less language.
-            // Moreover, speakers of one variant can generally understand other variants.
-            return localeToLanguage(locale)
+        guard let locale = languageRecognizer.languageHypotheses(withMaximum: 1).first(where: { $0.value >= 0.5 })?.key.rawValue else {
+            let nstr: String? = nil
+            return nstr
         }
 
-        return await t.value
+        // Remove the variant component and just take the language part as translation services typically only supports the variant-less language.
+        // Moreover, speakers of one variant can generally understand other variants.
+        return localeToLanguage(locale)
+    }
+
+    var age: TimeInterval {
+        let event_date = Date(timeIntervalSince1970: TimeInterval(created_at))
+        return Date.now.timeIntervalSince(event_date)
     }
 
     /*

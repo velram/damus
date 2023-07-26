@@ -135,12 +135,12 @@ func decode_nostr_uri(_ s: String) -> NostrLink? {
             return
         }
     
-    if tag_is_hashtag(parts) {
+    if parts.count >= 2 && parts[0] == "t" {
         return .filter(NostrFilter(hashtag: [parts[1].lowercased()]))
     }
     
-    if let rid = tag_to_refid(parts) {
-        return .ref(rid)
+    if parts.count >= 2, parts[0].count == 1  {
+        return .ref(ReferencedId(ref_id: parts[1], relay_id: nil, key: parts[0]))
     }
     
     guard parts.count == 1 else {

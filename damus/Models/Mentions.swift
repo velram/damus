@@ -163,43 +163,13 @@ struct Blocks: Equatable {
     let blocks: [Block]
 }
 
-func parse_note_content(content: String, tags: [[String]]) -> Blocks {
-    var out: [Block] = []
-    
-    var bs = note_blocks()
-    bs.num_blocks = 0;
-    
-    blocks_init(&bs)
-    
-    let bytes = content.utf8CString
-    let _ = bytes.withUnsafeBufferPointer { p in
-        damus_parse_content(&bs, p.baseAddress)
-    }
-    
-    var i = 0
-    while (i < bs.num_blocks) {
-        let block = bs.blocks[i]
-        
-        if let converted = convert_block(block, tags: tags) {
-            out.append(converted)
-        }
-        
-        i += 1
-    }
-    
-    let words = Int(bs.words)
-    blocks_free(&bs)
-    
-    return Blocks(words: words, blocks: out)
-}
-
 func strblock_to_string(_ s: str_block_t) -> String? {
     let len = s.end - s.start
     let bytes = Data(bytes: s.start, count: len)
     return String(bytes: bytes, encoding: .utf8)
 }
 
-func convert_block(_ b: block_t, tags: [[String]]) -> Block? {
+func convert_block(_ b: block_t, tags: TagsSequence?) -> Block? {
     if b.type == BLOCK_HASHTAG {
         guard let str = strblock_to_string(b.block.str) else {
             return nil
@@ -211,7 +181,7 @@ func convert_block(_ b: block_t, tags: [[String]]) -> Block? {
         }
         return .text(str)
     } else if b.type == BLOCK_MENTION_INDEX {
-        return convert_mention_index_block(ind: b.block.mention_index, tags: tags)
+        return convert_mention_index_block(ind: Int(b.block.mention_index), tags: tags)
     } else if b.type == BLOCK_URL {
         return convert_url_block(b.block.str)
     } else if b.type == BLOCK_INVOICE {
@@ -388,20 +358,18 @@ func convert_invoice_description(b11: bolt11) -> InvoiceDescription? {
     return nil
 }
 
-func convert_mention_index_block(ind: Int32, tags: [[String]]) -> Block?
+func convert_mention_index_block(ind: Int, tags: TagsSequence?) -> Block?
 {
-    let ind = Int(ind)
-    
-    if ind < 0 || (ind + 1 > tags.count) || tags[ind].count < 2 {
+    guard let tags, ind >= 0, ind + 1 <= tags.count else {
         return .text("#[\(ind)]")
     }
-        
+
     let tag = tags[ind]
-    guard let mention_type = parse_mention_type(tag[0]) else {
-        return .text("#[\(ind)]")
-    }
-    
-    guard let ref = tag_to_refid(tag) else {
+
+    guard tag.count >= 2,
+          let mention_type = parse_mention_type(tag[0]),
+          let ref = tag_to_refid(tag)
+    else {
         return .text("#[\(ind)]")
     }
     
@@ -427,7 +395,7 @@ struct PostTags {
     let tags: [[String]]
 }
 
-func parse_mention_type_ndb(_ tag: NdbTagElem) -> MentionType? {
+func parse_mention_type(_ tag: TagElem) -> MentionType? {
     if tag.matches_char("e") {
         return .event
     } else if tag.matches_char("p") {
@@ -436,15 +404,6 @@ func parse_mention_type_ndb(_ tag: NdbTagElem) -> MentionType? {
     return nil
 }
 
-func parse_mention_type(_ c: String) -> MentionType? {
-    if c == "e" {
-        return .event
-    } else if c == "p" {
-        return .pubkey
-    }
-    
-    return nil
-}
 
 /// Convert
 func make_post_tags(post_blocks: [Block], tags: [[String]]) -> PostTags {

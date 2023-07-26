@@ -102,7 +102,7 @@ final class NostrScriptTests: XCTestCase {
         
         pool.connect(to: ["wss://cache3.primal.net/cache15"])
         
-        self.wait(for: [resume_expected], timeout: 10.0)
+        self.wait(for: [resume_expected], timeout: 5.0)
     }
 
 }

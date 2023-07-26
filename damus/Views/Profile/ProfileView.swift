@@ -353,7 +353,9 @@ struct ProfileView: View {
 
             HStack {
                 if let contact = profile.contacts {
-                    let contacts = contact.referenced_pubkeys.map { $0.ref_id }
+                    let contacts = contact.referenced_pubkeys.reduce(into: [String]()) { pks, ref in
+                        pks.append(ref.ref_id.string())
+                    }
                     let following_model = FollowingModel(damus_state: damus_state, contacts: contacts)
                     NavigationLink(value: Route.Following(following: following_model)) {
                         HStack {

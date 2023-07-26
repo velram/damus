@@ -18,6 +18,12 @@ final class NdbTests: XCTestCase {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
 
+    func test_decode_eose() throws {
+        let json = "[\"EOSE\",\"DC268DBD-55DA-458A-B967-540925AF3497\"]"
+        let resp = decode_nostr_event(txt: json)
+        XCTAssertNotNil(resp)
+    }
+
     func test_ndb_note() throws {
         let note = NdbNote.owned_from_json(json: test_contact_list_json)
         XCTAssertNotNil(note)

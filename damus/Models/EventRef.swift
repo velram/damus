@@ -105,14 +105,13 @@ func interp_event_refs_without_mentions(_ refs: [ReferencedId]) -> [EventRef] {
     return evrefs
 }
 
-func interp_event_refs_with_mentions(tags: [[String]], mention_indices: Set<Int>) -> [EventRef] {
+func interp_event_refs_with_mentions(tags: Tags, mention_indices: Set<Int>) -> [EventRef] {
     var mentions: [EventRef] = []
     var ev_refs: [ReferencedId] = []
     var i: Int = 0
     
     for tag in tags {
-        if tag.count >= 2 && tag[0] == "e" {
-            let ref = tag_to_refid(tag)!
+        if tag.count >= 2, tag[0].matches_char("e"), let ref = tag_to_refid(tag) {
             if mention_indices.contains(i) {
                 let mention = Mention(index: i, type: .event, ref: ref)
                 mentions.append(.mention(mention))
@@ -128,7 +127,7 @@ func interp_event_refs_with_mentions(tags: [[String]], mention_indices: Set<Int>
     return replies
 }
 
-func interpret_event_refs(blocks: [Block], tags: [[String]]) -> [EventRef] {
+func interpret_event_refs(blocks: [Block], tags: Tags) -> [EventRef] {
     if tags.count == 0 {
         return []
     }
@@ -138,8 +137,8 @@ func interpret_event_refs(blocks: [Block], tags: [[String]]) -> [EventRef] {
     
     /// simpler case with no mentions
     if mention_indices.count == 0 {
-        let ev_refs = get_referenced_ids(tags: tags, key: "e")
-        return interp_event_refs_without_mentions(ev_refs)
+        let ev_refs = References.ids(tags: tags)
+        return interp_event_refs_without_mentions_ndb(ev_refs)
     }
     
     return interp_event_refs_with_mentions(tags: tags, mention_indices: mention_indices)
