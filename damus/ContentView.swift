@@ -680,7 +680,7 @@ extension UINavigationController: UIGestureRecognizerDelegate {
 }
 
 struct LastNotification {
-    let id: String
+    let id: NoteId
     let created_at: Int64
 }
 
@@ -689,17 +689,20 @@ func get_last_event(_ timeline: Timeline) -> LastNotification? {
     let last = UserDefaults.standard.string(forKey: "last_\(str)")
     let last_created = UserDefaults.standard.string(forKey: "last_\(str)_time")
         .flatMap { Int64($0) }
-    
-    return last.flatMap { id in
-        last_created.map { created in
-            return LastNotification(id: id, created_at: created)
-        }
+
+    guard let last,
+          let note_id = NoteId(hex: last),
+          let last_created
+    else {
+        return nil
     }
+
+    return LastNotification(id: note_id, created_at: last_created)
 }
 
 func save_last_event(_ ev: NostrEvent, timeline: Timeline) {
     let str = timeline.rawValue
-    UserDefaults.standard.set(ev.id, forKey: "last_\(str)")
+    UserDefaults.standard.set(ev.id.hex(), forKey: "last_\(str)")
     UserDefaults.standard.set(String(ev.created_at), forKey: "last_\(str)_time")
 }
 

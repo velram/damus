@@ -92,8 +92,7 @@ class Profiles {
         }
     }
     
-    func has_fresh_profile(id: String) -> Bool {
-        // check memory first
+    func has_fresh_profile(id: Pubkey) -> Bool {
         var profile: Profile?
         profiles_queue.sync {
             profile = profiles[id]?.profile
@@ -101,7 +100,9 @@ class Profiles {
         if profile != nil {
             return true
         }
-        
+        // check memory first
+        return false
+
         // then disk
         guard let pull_date = database.get_network_pull_date(id: id) else {
             return false
