@@ -12,3 +12,14 @@ typealias FollowRef = ReferencedId
 typealias Pubkey = String
 typealias NoteId = String
 typealias Privkey = String
+
+extension String {
+    // Id constructors
+    init?(hex: String) {
+        self = hex
+    }
+
+    func hex() -> String {
+        return self
+    }
+}
